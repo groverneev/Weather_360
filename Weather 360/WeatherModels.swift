@@ -75,7 +75,7 @@ struct WeatherDisplay {
     let highTemp: Double
     let lowTemp: Double
     let humidity: Int
-    let pressure: Int
+    let airQualityIndex: Int // Air Quality Index (1-5 scale)
     let windSpeed: Double
     let windDirection: Int
     let description: String
@@ -91,7 +91,7 @@ struct WeatherDisplay {
         self.highTemp = response.main.tempMax
         self.lowTemp = response.main.tempMin
         self.humidity = response.main.humidity
-        self.pressure = response.main.pressure
+        self.airQualityIndex = 3 // Default value, will be updated by separate API call
         self.windSpeed = response.wind.speed
         self.windDirection = response.wind.deg
         self.description = response.weather.first?.description ?? ""
@@ -105,14 +105,14 @@ struct WeatherDisplay {
     }
     
     // Custom initializer for previews and testing
-    init(cityName: String, temperature: Double, feelsLike: Double, highTemp: Double, lowTemp: Double, humidity: Int, pressure: Int, windSpeed: Double, windDirection: Int, description: String, icon: String, sunrise: Date, sunset: Date, timezoneOffset: Int = 0) {
+    init(cityName: String, temperature: Double, feelsLike: Double, highTemp: Double, lowTemp: Double, humidity: Int, airQualityIndex: Int, windSpeed: Double, windDirection: Int, description: String, icon: String, sunrise: Date, sunset: Date, timezoneOffset: Int = 0) {
         self.cityName = cityName
         self.temperature = temperature
         self.feelsLike = feelsLike
         self.highTemp = highTemp
         self.lowTemp = lowTemp
         self.humidity = humidity
-        self.pressure = pressure
+        self.airQualityIndex = airQualityIndex
         self.windSpeed = windSpeed
         self.windDirection = windDirection
         self.description = description

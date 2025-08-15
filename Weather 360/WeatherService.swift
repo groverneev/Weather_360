@@ -310,8 +310,35 @@ class WeatherService: ObservableObject {
                     self?.logger.info("☁️ Weather description: \(response.weather.first?.description ?? "N/A")")
                     print("☁️ [DEBUG] Weather description: \(response.weather.first?.description ?? "N/A")")
                     
+                    // Create weather display object
                     let weatherDisplay = WeatherDisplay(from: response)
-                    self?.weather = weatherDisplay
+                    
+                    // Fetch air quality data and update the display
+                    self?.fetchAirQuality(lat: response.coord.lat, lon: response.coord.lon) { aqi in
+                        DispatchQueue.main.async {
+                            // Create a new WeatherDisplay with the air quality data
+                            let updatedWeatherDisplay = WeatherDisplay(
+                                cityName: weatherDisplay.cityName,
+                                temperature: weatherDisplay.temperature,
+                                feelsLike: weatherDisplay.feelsLike,
+                                highTemp: weatherDisplay.highTemp,
+                                lowTemp: weatherDisplay.lowTemp,
+                                humidity: weatherDisplay.humidity,
+                                airQualityIndex: aqi,
+                                windSpeed: weatherDisplay.windSpeed,
+                                windDirection: weatherDisplay.windDirection,
+                                description: weatherDisplay.description,
+                                icon: weatherDisplay.icon,
+                                sunrise: weatherDisplay.sunrise,
+                                sunset: weatherDisplay.sunset,
+                                timezoneOffset: weatherDisplay.timezoneOffset
+                            )
+                            
+                            self?.weather = updatedWeatherDisplay
+                            self?.isLoading = false
+                            self?.errorMessage = nil
+                        }
+                    }
                     
                     self?.logger.info("🎉 Weather data successfully processed and displayed")
                     print("🎉 [DEBUG] Weather data successfully processed and displayed")
@@ -394,8 +421,35 @@ class WeatherService: ObservableObject {
                     self?.logger.info("🌡️ Temperature (C): \(response.main.temp.toCelsius())")
                     self?.logger.info("🌡️ Temperature (F): \(response.main.temp.toFahrenheit())")
                     
+                    // Create weather display object
                     let weatherDisplay = WeatherDisplay(from: response)
-                    self?.weather = weatherDisplay
+                    
+                    // Fetch air quality data and update the display
+                    self?.fetchAirQuality(lat: response.coord.lat, lon: response.coord.lon) { aqi in
+                        DispatchQueue.main.async {
+                            // Create a new WeatherDisplay with the air quality data
+                            let updatedWeatherDisplay = WeatherDisplay(
+                                cityName: weatherDisplay.cityName,
+                                temperature: weatherDisplay.temperature,
+                                feelsLike: weatherDisplay.feelsLike,
+                                highTemp: weatherDisplay.highTemp,
+                                lowTemp: weatherDisplay.lowTemp,
+                                humidity: weatherDisplay.humidity,
+                                airQualityIndex: aqi,
+                                windSpeed: weatherDisplay.windSpeed,
+                                windDirection: weatherDisplay.windDirection,
+                                description: weatherDisplay.description,
+                                icon: weatherDisplay.icon,
+                                sunrise: weatherDisplay.sunrise,
+                                sunset: weatherDisplay.sunset,
+                                timezoneOffset: weatherDisplay.timezoneOffset
+                            )
+                            
+                            self?.weather = updatedWeatherDisplay
+                            self?.isLoading = false
+                            self?.errorMessage = nil
+                        }
+                    }
                     
                     self?.logger.info("🎉 Weather data successfully processed and displayed")
                     
@@ -409,6 +463,51 @@ class WeatherService: ObservableObject {
                         self?.logger.error("❌ Unknown parsing error")
                         self?.errorMessage = "Failed to parse weather data"
                     }
+                }
+            }
+        }.resume()
+    }
+    
+    // MARK: - Air Quality Methods
+    
+    private func fetchAirQuality(lat: Double, lon: Double, completion: @escaping (Int) -> Void) {
+        let urlString = "\(Config.airQualityBaseURL)?lat=\(lat)&lon=\(lon)&appid=\(apiKey)"
+        
+        guard let url = URL(string: urlString) else {
+            print("❌ [DEBUG] Invalid air quality URL")
+            completion(3) // Default to moderate air quality
+            return
+        }
+        
+        print("🌬️ [DEBUG] Fetching air quality from: \(urlString)")
+        
+        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("❌ [DEBUG] Air quality fetch error: \(error.localizedDescription)")
+                    completion(3) // Default to moderate air quality
+                    return
+                }
+                
+                guard let data = data else {
+                    print("❌ [DEBUG] No air quality data received")
+                    completion(3) // Default to moderate air quality
+                    return
+                }
+                
+                do {
+                    let airQualityResponse = try JSONDecoder().decode(AirQualityResponse.self, from: data)
+                    if let firstReading = airQualityResponse.list.first {
+                        let aqi = firstReading.main.aqi
+                        print("🌬️ [DEBUG] Air Quality Index: \(aqi)")
+                        completion(aqi)
+                    } else {
+                        print("❌ [DEBUG] No air quality readings in response")
+                        completion(3) // Default to moderate air quality
+                    }
+                } catch {
+                    print("❌ [DEBUG] Air quality JSON decode error: \(error)")
+                    completion(3) // Default to moderate air quality
                 }
             }
         }.resume()
@@ -441,25 +540,101 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         super.init()
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
+        
+        // Check current authorization status
+        authorizationStatus = locationManager.authorizationStatus
     }
     
     func requestLocation() {
-        locationManager.requestWhenInUseAuthorization()
-        locationManager.requestLocation()
+        print("📍 [DEBUG] LocationManager: Requesting location...")
+        print("📍 [DEBUG] Current authorization status: \(authorizationStatus.rawValue)")
+        
+        switch authorizationStatus {
+        case .notDetermined:
+            print("📍 [DEBUG] Requesting permission...")
+            locationManager.requestWhenInUseAuthorization()
+        case .denied, .restricted:
+            print("📍 [DEBUG] Location access denied or restricted")
+            // We'll handle this in the UI
+        case .authorizedWhenInUse, .authorizedAlways:
+            print("📍 [DEBUG] Permission granted, requesting location...")
+            locationManager.requestLocation()
+        @unknown default:
+            print("📍 [DEBUG] Unknown authorization status")
+            locationManager.requestWhenInUseAuthorization()
+        }
     }
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        location = locations.first
+        guard let location = locations.last else { return }
+        print("📍 [DEBUG] Location received: \(location.coordinate)")
+        self.location = location
     }
     
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        print("Location error: \(error.localizedDescription)")
+        print("📍 [DEBUG] Location error: \(error.localizedDescription)")
+        print("📍 [DEBUG] Error domain: \(error as NSError).domain")
+        print("📍 [DEBUG] Error code: \(error as NSError).code")
+        
+        if let clError = error as? CLError {
+            switch clError.code {
+            case .denied:
+                print("📍 [DEBUG] Location access denied by user")
+            case .locationUnknown:
+                print("📍 [DEBUG] Location temporarily unavailable")
+            case .network:
+                print("📍 [DEBUG] Network error")
+            case .headingFailure:
+                print("📍 [DEBUG] Heading failure")
+            default:
+                print("📍 [DEBUG] Other Core Location error: \(clError.code)")
+            }
+        }
     }
     
     func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        print("📍 [DEBUG] Authorization status changed to: \(status.rawValue)")
         authorizationStatus = status
+        
+        DispatchQueue.main.async {
+            self.authorizationStatus = status
+        }
+        
         if status == .authorizedWhenInUse || status == .authorizedAlways {
+            print("📍 [DEBUG] Permission granted, requesting location...")
             locationManager.requestLocation()
         }
     }
 }
+
+// MARK: - Air Quality Models
+struct AirQualityResponse: Codable {
+    let list: [AirQualityData]
+}
+
+struct AirQualityData: Codable {
+    let main: AirQualityMain
+    let components: AirQualityComponents
+    let dt: Int
+}
+
+struct AirQualityMain: Codable {
+    let aqi: Int // Air Quality Index (1-5)
+}
+
+struct AirQualityComponents: Codable {
+    let co: Double // Carbon monoxide
+    let no2: Double // Nitrogen dioxide
+    let o3: Double // Ozone
+    let so2: Double // Sulphur dioxide
+    let pm2_5: Double // Fine particulate matter
+    let pm10: Double // Coarse particulate matter
+    
+    enum CodingKeys: String, CodingKey {
+        case co, no2, o3, so2
+        case pm2_5 = "pm2_5"
+        case pm10
+    }
+}
+
+// MARK: - Weather Response Models

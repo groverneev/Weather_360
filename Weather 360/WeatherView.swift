@@ -100,10 +100,10 @@ struct WeatherView: View {
                     )
                     
                     WeatherDetailCard(
-                        icon: "gauge",
-                        title: "Pressure",
-                        value: "\(weather.pressure) hPa",
-                        color: .green
+                        icon: "thermometer",
+                        title: "Feels Like",
+                        value: String(format: "%.0f°", weather.feelsLike.toFahrenheit()),
+                        color: .orange
                     )
                     
                     WeatherDetailCard(
@@ -121,6 +121,34 @@ struct WeatherView: View {
                     )
                 }
                 .padding(.horizontal, 20)
+                
+                // Humidity and Air Quality
+                HStack(spacing: 40) {
+                    VStack {
+                        Image(systemName: "humidity")
+                            .font(.title2)
+                            .foregroundColor(.blue)
+                        Text("Humidity")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("\(weather.humidity)%")
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                    }
+                    
+                    VStack {
+                        Image(systemName: airQualityIcon)
+                            .font(.title2)
+                            .foregroundColor(airQualityColor)
+                        Text("Air Quality")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(airQualityText)
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                            .foregroundColor(airQualityColor)
+                    }
+                }
                 
                 // Sunrise and Sunset
                 HStack(spacing: 40) {
@@ -166,6 +194,59 @@ struct WeatherView: View {
             )
         )
     }
+    
+    // MARK: - Computed Properties
+    
+    private var airQualityIcon: String {
+        switch weather.airQualityIndex {
+        case 1:
+            return "leaf.fill"
+        case 2:
+            return "leaf"
+        case 3:
+            return "exclamationmark.triangle"
+        case 4:
+            return "exclamationmark.triangle.fill"
+        case 5:
+            return "xmark.octagon.fill"
+        default:
+            return "questionmark.circle"
+        }
+    }
+    
+    private var airQualityColor: Color {
+        switch weather.airQualityIndex {
+        case 1:
+            return .green
+        case 2:
+            return .yellow
+        case 3:
+            return .orange
+        case 4:
+            return .red
+        case 5:
+            return .purple
+        default:
+            return .gray
+        }
+    }
+    
+    private var airQualityText: String {
+        switch weather.airQualityIndex {
+        case 1:
+            return "Good"
+        case 2:
+            return "Fair"
+        case 3:
+            return "Moderate"
+        case 4:
+            return "Poor"
+        case 5:
+            return "Very Poor"
+        default:
+            return "Unknown"
+        }
+    }
 }
 
 struct WeatherDetailCard: View {
@@ -206,7 +287,7 @@ struct WeatherDetailCard: View {
         highTemp: 298.15,
         lowTemp: 288.15,
         humidity: 65,
-        pressure: 1013,
+        airQualityIndex: 2,
         windSpeed: 5.2,
         windDirection: 180,
         description: "partly cloudy",
