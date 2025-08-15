@@ -243,12 +243,56 @@ class WeatherService: ObservableObject {
                     print("✅ [DEBUG] Weather main: \(response.weather.first?.main ?? "N/A")")
                     print("✅ [DEBUG] Weather description: \(response.weather.first?.description ?? "N/A")")
                     
+                    // Log API response timestamp if available
+                    let responseDate = Date(timeIntervalSince1970: TimeInterval(response.dt))
+                    let formatter = DateFormatter()
+                    formatter.dateStyle = .medium
+                    formatter.timeStyle = .medium
+                    print("🕐 [DEBUG] API Response Timestamp: \(formatter.string(from: responseDate))")
+                    print("🕐 [DEBUG] Current Local Time: \(formatter.string(from: Date()))")
+                    
+                    let timeDifference = Date().timeIntervalSince(responseDate)
+                    print("🕐 [DEBUG] Data Age: \(String(format: "%.0f", timeDifference/60)) minutes old")
+                    
+                    // Log exact location data
+                    print("📍 [DEBUG] Exact Coordinates: lat=\(response.coord.lat), lon=\(response.coord.lon)")
+                    print("📍 [DEBUG] City Name: \(response.name)")
+                    print("📍 [DEBUG] Country: \(response.sys.country)")
+                    print("📍 [DEBUG] Timezone Offset: \(response.timezone) seconds")
+                    
+                    // Log timezone conversion details
+                    let cityTimezone = TimeZone(secondsFromGMT: response.timezone) ?? TimeZone.current
+                    let sunriseUTC = Date(timeIntervalSince1970: TimeInterval(response.sys.sunrise))
+                    let sunsetUTC = Date(timeIntervalSince1970: TimeInterval(response.sys.sunset))
+                    
+                    // Show UTC times
+                    formatter.timeZone = TimeZone(abbreviation: "UTC")
+                    print("🕐 [DEBUG] Sunrise (UTC): \(formatter.string(from: sunriseUTC))")
+                    print("🕐 [DEBUG] Sunset (UTC): \(formatter.string(from: sunsetUTC))")
+                    
+                    // Show city local times
+                    formatter.timeZone = cityTimezone
+                    print("🕐 [DEBUG] Sunrise (City Local): \(formatter.string(from: sunriseUTC))")
+                    print("🕐 [DEBUG] Sunset (City Local): \(formatter.string(from: sunsetUTC))")
+                    print("🕐 [DEBUG] City Timezone: \(cityTimezone.identifier)")
+                    
                     self?.logger.info("🌡️ Temperature (K): \(response.main.temp)")
                     print("🌡️ [DEBUG] Temperature (K): \(response.main.temp)")
                     self?.logger.info("🌡️ Temperature (C): \(response.main.temp.toCelsius())")
                     print("🌡️ [DEBUG] Temperature (C): \(response.main.temp.toCelsius())")
                     self?.logger.info("🌡️ Temperature (F): \(response.main.temp.toFahrenheit())")
                     print("🌡️ [DEBUG] Temperature (F): \(response.main.temp.toFahrenheit())")
+                    
+                    // Additional debugging for temperature discrepancy
+                    let tempF = response.main.temp.toFahrenheit()
+                    let tempC = response.main.temp.toCelsius()
+                    print("🔍 [DEBUG] TEMPERATURE ANALYSIS:")
+                    print("🔍 [DEBUG] Raw Kelvin: \(response.main.temp)K")
+                    print("🔍 [DEBUG] Converted Celsius: \(String(format: "%.2f", tempC))°C")
+                    print("🔍 [DEBUG] Converted Fahrenheit: \(String(format: "%.2f", tempF))°F")
+                    print("🔍 [DEBUG] Expected: ~72°F, Actual: \(String(format: "%.1f", tempF))°F")
+                    print("🔍 [DEBUG] Difference: \(String(format: "%.1f", 72 - tempF))°F")
+                    
                     self?.logger.info("🌡️ Feels like (K): \(response.main.feelsLike)")
                     print("🌡️ [DEBUG] Feels like (K): \(response.main.feelsLike)")
                     self?.logger.info("🌡️ High temp (K): \(response.main.tempMax)")

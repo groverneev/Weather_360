@@ -29,6 +29,12 @@ struct WeatherView: View {
                         Text("F: \(String(format: "%.1f", weather.temperature.toFahrenheit()))°F")
                             .font(.caption)
                             .foregroundColor(.secondary)
+                        
+                        // Note about potential discrepancy
+                        Text("Note: API data may be 5-15 min old")
+                            .font(.caption2)
+                            .foregroundColor(.orange)
+                            .padding(.top, 2)
                     }
                     .padding(.horizontal, 20)
                     .padding(.vertical, 8)
@@ -128,6 +134,7 @@ struct WeatherView: View {
                         Text(weather.sunrise, style: .time)
                             .font(.title3)
                             .fontWeight(.semibold)
+                            .environment(\.timeZone, TimeZone(secondsFromGMT: weather.timezoneOffset) ?? TimeZone.current)
                     }
                     
                     VStack {
@@ -140,6 +147,7 @@ struct WeatherView: View {
                         Text(weather.sunset, style: .time)
                             .font(.title3)
                             .fontWeight(.semibold)
+                            .environment(\.timeZone, TimeZone(secondsFromGMT: weather.timezoneOffset) ?? TimeZone.current)
                     }
                 }
                 .padding(.vertical, 20)
@@ -204,7 +212,8 @@ struct WeatherDetailCard: View {
         description: "partly cloudy",
         icon: "02d",
         sunrise: Date(),
-        sunset: Date().addingTimeInterval(3600 * 12)
+        sunset: Date().addingTimeInterval(3600 * 12),
+        timezoneOffset: -28800 // Pacific Time (UTC-8)
     )
     
     WeatherView(weather: sampleWeather)

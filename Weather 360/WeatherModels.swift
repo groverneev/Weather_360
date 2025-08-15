@@ -82,6 +82,7 @@ struct WeatherDisplay {
     let icon: String
     let sunrise: Date
     let sunset: Date
+    let timezoneOffset: Int // Timezone offset in seconds from UTC
     
     init(from response: WeatherResponse) {
         self.cityName = response.name
@@ -95,12 +96,16 @@ struct WeatherDisplay {
         self.windDirection = response.wind.deg
         self.description = response.weather.first?.description ?? ""
         self.icon = response.weather.first?.icon ?? ""
+        self.timezoneOffset = response.timezone
+        
+        // Convert UTC times to city's local timezone
+        let cityTimezone = TimeZone(secondsFromGMT: response.timezone) ?? TimeZone.current
         self.sunrise = Date(timeIntervalSince1970: TimeInterval(response.sys.sunrise))
         self.sunset = Date(timeIntervalSince1970: TimeInterval(response.sys.sunset))
     }
     
     // Custom initializer for previews and testing
-    init(cityName: String, temperature: Double, feelsLike: Double, highTemp: Double, lowTemp: Double, humidity: Int, pressure: Int, windSpeed: Double, windDirection: Int, description: String, icon: String, sunrise: Date, sunset: Date) {
+    init(cityName: String, temperature: Double, feelsLike: Double, highTemp: Double, lowTemp: Double, humidity: Int, pressure: Int, windSpeed: Double, windDirection: Int, description: String, icon: String, sunrise: Date, sunset: Date, timezoneOffset: Int = 0) {
         self.cityName = cityName
         self.temperature = temperature
         self.feelsLike = feelsLike
@@ -114,6 +119,7 @@ struct WeatherDisplay {
         self.icon = icon
         self.sunrise = sunrise
         self.sunset = sunset
+        self.timezoneOffset = timezoneOffset
     }
 }
 
