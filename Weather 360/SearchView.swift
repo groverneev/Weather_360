@@ -20,6 +20,15 @@ struct SearchView: View {
                         Text(weatherService.locationManager.currentCity)
                             .font(.caption)
                             .foregroundColor(.secondary)
+                        
+                        // Refresh location button
+                        Button(action: {
+                            weatherService.locationManager.requestLocation()
+                        }) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                        }
                     }
                     
                     Spacer()
@@ -101,10 +110,7 @@ struct SearchView: View {
                     }
                     .padding(.horizontal, 20)
                     
-                    // Location status info
-                    if weatherService.locationManager.authorizationStatus != .notDetermined {
-                        locationStatusView
-                    }
+                    // Location status info removed - was showing "location access granted" text
                     
                     Spacer()
                 }

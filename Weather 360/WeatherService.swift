@@ -508,7 +508,7 @@ class WeatherService: ObservableObject {
         
         print("🌬️ [DEBUG] Fetching air quality from: \(urlString)")
         
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+        URLSession.shared.dataTask(with: url) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     print("❌ [DEBUG] Air quality fetch error: \(error.localizedDescription)")
@@ -562,7 +562,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let locationManager = CLLocationManager()
     @Published var location: CLLocation?
     @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
-    @Published var currentCity: String = "Unknown Location"
+    @Published var currentCity: String = "Getting location..."
     
     // Add completion handler for location updates
     var onLocationReceived: ((CLLocation) -> Void)?
@@ -579,6 +579,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     
     func requestLocation() {
         print("📍 [DEBUG] Requesting location...")
+        currentCity = "Getting location..."
         locationManager.requestLocation()
     }
     
@@ -606,20 +607,39 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     
     private func reverseGeocodeLocation(_ location: CLLocation) {
         let geocoder = CLGeocoder()
+        print("📍 [DEBUG] Starting reverse geocoding for coordinates: \(location.coordinate)")
+        
         geocoder.reverseGeocodeLocation(location) { [weak self] placemarks, error in
             DispatchQueue.main.async {
                 if let error = error {
                     print("📍 [DEBUG] Reverse geocoding error: \(error.localizedDescription)")
+                    self?.currentCity = "Location error"
                     return
                 }
                 
-                if let placemark = placemarks?.first {
-                    let city = placemark.locality ?? placemark.administrativeArea ?? "Unknown City"
+                if let placemarks = placemarks, !placemarks.isEmpty {
+                    let placemark = placemarks[0]
+                    print("📍 [DEBUG] Received placemark: \(placemark)")
+                    
+                    // Try to get the most specific city name
+                    let city = placemark.locality ?? placemark.subLocality ?? placemark.administrativeArea ?? "Unknown City"
                     let state = placemark.administrativeArea ?? ""
                     let country = placemark.country ?? ""
+                    _ = placemark.postalCode ?? ""
+                    
+                    print("📍 [DEBUG] Placemark details:")
+                    print("   - Locality: \(placemark.locality ?? "nil")")
+                    print("   - SubLocality: \(placemark.subLocality ?? "nil")")
+                    print("   - AdministrativeArea: \(placemark.administrativeArea ?? "nil")")
+                    print("   - Country: \(placemark.country ?? "nil")")
+                    print("   - PostalCode: \(placemark.postalCode ?? "nil")")
                     
                     self?.currentCity = city
-                    print("📍 [DEBUG] Reverse geocoded to: \(city), \(state), \(country)")
+                    print("📍 [DEBUG] Final city name set to: \(city)")
+                    print("📍 [DEBUG] Full location: \(city), \(state), \(country)")
+                } else {
+                    print("📍 [DEBUG] No placemarks received")
+                    self?.currentCity = "Unknown location"
                 }
             }
         }
@@ -630,18 +650,37 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         print("📍 [DEBUG] Error domain: \(error as NSError).domain")
         print("📍 [DEBUG] Error code: \(error as NSError).code")
         
+        DispatchQueue.main.async {
+            self.currentCity = "Location error"
+        }
+        
         if let clError = error as? CLError {
             switch clError.code {
             case .denied:
                 print("📍 [DEBUG] Location access denied by user")
+                DispatchQueue.main.async {
+                    self.currentCity = "Access denied"
+                }
             case .locationUnknown:
                 print("📍 [DEBUG] Location temporarily unavailable")
+                DispatchQueue.main.async {
+                    self.currentCity = "Location unavailable"
+                }
             case .network:
                 print("📍 [DEBUG] Network error")
+                DispatchQueue.main.async {
+                    self.currentCity = "Network error"
+                }
             case .headingFailure:
                 print("📍 [DEBUG] Heading failure")
+                DispatchQueue.main.async {
+                    self.currentCity = "Location error"
+                }
             default:
                 print("📍 [DEBUG] Other Core Location error: \(clError.code)")
+                DispatchQueue.main.async {
+                    self.currentCity = "Location error"
+                }
             }
         }
     }
