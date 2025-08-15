@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import os.log
 import Network
+import CoreLocation
 
 class WeatherService: ObservableObject {
     @Published var weather: WeatherDisplay?
@@ -13,6 +14,7 @@ class WeatherService: ObservableObject {
     private let logger = Logger(subsystem: "com.weatherapp", category: "WeatherService")
     private let networkMonitor = NWPathMonitor()
     private var isNetworkReachable = false
+    private let locationManager = LocationManager()
     
     init() {
         // Test temperature conversions on initialization
@@ -411,6 +413,14 @@ class WeatherService: ObservableObject {
             }
         }.resume()
     }
+    
+    // MARK: - Location Services
+    
+    func requestLocation() {
+        locationManager.requestLocation()
+    }
+    
+    // MARK: - API Methods
 }
 
 // MARK: - Error Response Model

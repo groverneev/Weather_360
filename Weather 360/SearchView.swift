@@ -73,10 +73,9 @@ struct SearchView: View {
                 .disabled(searchText.isEmpty)
                 .padding(.horizontal, 20)
                 
-                // Current location button
+                // Current Location Button
                 Button(action: {
-                    locationManager.requestLocation()
-                    showingLocationAlert = true
+                    weatherService.requestLocation()
                 }) {
                     HStack {
                         Image(systemName: "location.fill")
@@ -86,24 +85,7 @@ struct SearchView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.green)
-                    .cornerRadius(15)
-                }
-                .padding(.horizontal, 20)
-                
-                // Test API button (for debugging)
-                Button(action: {
-                    weatherService.testAPIWithKnownCity()
-                }) {
-                    HStack {
-                        Image(systemName: "wrench.and.screwdriver.fill")
-                        Text("Test API (London)")
-                    }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.orange)
+                    .background(Color.blue)
                     .cornerRadius(15)
                 }
                 .padding(.horizontal, 20)
