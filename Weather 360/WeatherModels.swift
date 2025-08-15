@@ -67,8 +67,9 @@ struct System: Codable {
     let sunset: Int
 }
 
-// MARK: - Weather Display Models
-struct WeatherDisplay {
+// MARK: - Weather Display Model (for UI)
+struct WeatherDisplay: Identifiable {
+    let id = UUID() // Add unique identifier for sheet presentation
     let cityName: String
     let temperature: Double
     let feelsLike: Double
@@ -132,22 +133,6 @@ extension Double {
     func toFahrenheit() -> Double {
         return (self - 273.15) * 9/5 + 32
     }
-    
-    func formatTemperature(unit: TemperatureUnit) -> String {
-        let temp: Double
-        switch unit {
-        case .celsius:
-            temp = self.toCelsius()
-        case .fahrenheit:
-            temp = self.toFahrenheit()
-        }
-        return String(format: "%.1f°", temp)
-    }
-}
-
-enum TemperatureUnit: String, CaseIterable {
-    case celsius = "C"
-    case fahrenheit = "F"
 }
 
 // MARK: - Wind Direction Helper

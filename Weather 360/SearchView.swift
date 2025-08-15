@@ -2,269 +2,240 @@ import SwiftUI
 
 struct SearchView: View {
     @StateObject private var weatherService = WeatherService()
-    @StateObject private var locationManager = LocationManager()
-    @State private var searchText = ""
+    @EnvironmentObject var themeManager: ThemeManager
+    @State private var cityInput = ""
     @State private var showingLocationAlert = false
     @State private var locationAlertMessage = ""
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 20) {
-                // Search header
-                VStack(spacing: 10) {
-                    Image(systemName: "cloud.sun.fill")
-                        .font(.system(size: 60))
-                        .foregroundColor(.blue)
-                    
-                    Text("Weather 360")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                    
-                    Text("Get current weather for any city")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(.top, 40)
-                
-                // Search bar
+            VStack(spacing: 0) {
+                // Top bar with current location and theme toggle
                 HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.secondary)
-                    
-                    TextField("Enter city name...", text: $searchText)
-                        .textFieldStyle(PlainTextFieldStyle())
-                        .onSubmit {
-                            if !searchText.isEmpty {
-                                weatherService.fetchWeather(for: searchText)
-                            }
-                        }
-                    
-                    if !searchText.isEmpty {
-                        Button(action: {
-                            searchText = ""
-                        }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(15)
-                .padding(.horizontal, 20)
-                
-                // Search button
-                Button(action: {
-                    if !searchText.isEmpty {
-                        weatherService.fetchWeather(for: searchText)
-                    }
-                }) {
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                        Text("Search Weather")
-                    }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(searchText.isEmpty ? Color.gray : Color.blue)
-                    .cornerRadius(15)
-                }
-                .disabled(searchText.isEmpty)
-                .padding(.horizontal, 20)
-                
-                // Current Location Button
-                Button(action: {
-                    handleLocationRequest()
-                }) {
-                    HStack {
-                        Image(systemName: locationButtonIcon)
-                        Text(locationButtonText)
-                    }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(locationButtonColor)
-                    .cornerRadius(15)
-                }
-                .padding(.horizontal, 20)
-                
-                // Location status info
-                if locationManager.authorizationStatus != .notDetermined {
-                    locationStatusView
-                }
-                
-                // Loading state
-                if weatherService.isLoading {
-                    VStack(spacing: 15) {
-                        ProgressView()
-                            .scaleEffect(1.5)
-                        Text("Fetching weather data...")
-                            .font(.subheadline)
+                    // Current location display
+                    HStack(spacing: 8) {
+                        Image(systemName: "location.fill")
+                            .foregroundColor(.blue)
+                            .font(.caption)
+                        Text(weatherService.locationManager.currentCity)
+                            .font(.caption)
                             .foregroundColor(.secondary)
                     }
-                    .padding(.top, 40)
+                    
+                    Spacer()
+                    
+                    // Theme toggle
+                    Button(action: {
+                        themeManager.toggleTheme()
+                    }) {
+                        Image(systemName: themeManager.isDarkMode ? "sun.max.fill" : "moon.fill")
+                            .font(.title2)
+                            .foregroundColor(themeManager.isDarkMode ? .yellow : .purple)
+                            .padding(8)
+                            .background(themeManager.isDarkMode ? Color.yellow.opacity(0.2) : Color.purple.opacity(0.2))
+                            .clipShape(Circle())
+                    }
                 }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+                .background(themeManager.isDarkMode ? Color(.systemGray6) : Color(.systemBackground))
                 
-                // Error state
-                if let errorMessage = weatherService.errorMessage {
-                    VStack(spacing: 15) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 40))
-                            .foregroundColor(.red)
+                // Main content
+                VStack(spacing: 30) {
+                    Spacer()
+                    
+                    // App title
+                    VStack(spacing: 10) {
+                        Text("Weather 360")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                            .foregroundColor(.primary)
                         
-                        Text("Error")
-                            .font(.headline)
-                            .foregroundColor(.red)
-                        
-                        Text(errorMessage)
+                        Text("Get accurate weather information for any city")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
-                            .padding(.horizontal, 20)
                     }
-                    .padding(.top, 40)
+                    
+                    // Search input
+                    VStack(spacing: 15) {
+                        TextField("Enter city name", text: $cityInput)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .font(.title3)
+                            .padding(.horizontal, 20)
+                        
+                        Button(action: {
+                            if !cityInput.isEmpty {
+                                weatherService.fetchWeather(for: cityInput)
+                            }
+                        }) {
+                            HStack {
+                                Image(systemName: "magnifyingglass")
+                                Text("Search Weather")
+                            }
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue)
+                            .cornerRadius(15)
+                        }
+                        .disabled(cityInput.isEmpty)
+                        .padding(.horizontal, 20)
+                    }
+                    
+                    // Current Location Button
+                    Button(action: {
+                        handleLocationRequest()
+                    }) {
+                        HStack {
+                            Image(systemName: locationButtonIcon)
+                            Text(locationButtonText)
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(locationButtonColor)
+                        .cornerRadius(15)
+                    }
+                    .padding(.horizontal, 20)
+                    
+                    // Location status info
+                    if weatherService.locationManager.authorizationStatus != .notDetermined {
+                        locationStatusView
+                    }
+                    
+                    Spacer()
                 }
-                
-                Spacer()
+                .padding(.top, 20)
             }
             .navigationBarHidden(true)
-        }
-        .onReceive(locationManager.$location) { location in
-            if let location = location {
-                weatherService.fetchWeatherByCoordinates(lat: location.coordinate.latitude, lon: location.coordinate.longitude)
+            .sheet(item: $weatherService.weather) { weather in
+                WeatherView(weather: weather)
+                    .environmentObject(themeManager)
             }
-        }
-        .alert("Location Access", isPresented: $showingLocationAlert) {
-            Button("OK") { }
-            if locationManager.authorizationStatus == .denied {
+            .alert("Location Access Required", isPresented: $showingLocationAlert) {
+                Button("Cancel", role: .cancel) { }
                 Button("Open Settings") {
                     if let settingsUrl = URL(string: UIApplication.openSettingsURLString) {
                         UIApplication.shared.open(settingsUrl)
                     }
                 }
+            } message: {
+                Text(locationAlertMessage)
             }
-        } message: {
-            Text(locationAlertMessage)
         }
-        .sheet(item: $weatherService.weather) { weather in
-            WeatherView(weather: weather)
-        }
+        .background(themeManager.isDarkMode ? Color(.systemGray6) : Color(.systemBackground))
     }
     
     // MARK: - Computed Properties
     
     private var locationButtonIcon: String {
-        switch locationManager.authorizationStatus {
+        switch weatherService.locationManager.authorizationStatus {
         case .denied, .restricted:
-            return "location.slash.fill"
+            return "location.slash"
+        case .notDetermined:
+            return "location"
         case .authorizedWhenInUse, .authorizedAlways:
             return "location.fill"
-        default:
-            return "location.fill"
+        @unknown default:
+            return "location"
         }
     }
     
     private var locationButtonText: String {
-        switch locationManager.authorizationStatus {
+        switch weatherService.locationManager.authorizationStatus {
         case .denied, .restricted:
             return "Location Access Denied"
+        case .notDetermined:
+            return "Use Current Location"
         case .authorizedWhenInUse, .authorizedAlways:
             return "Use Current Location"
-        default:
+        @unknown default:
             return "Use Current Location"
         }
     }
     
     private var locationButtonColor: Color {
-        switch locationManager.authorizationStatus {
+        switch weatherService.locationManager.authorizationStatus {
         case .denied, .restricted:
             return .red
+        case .notDetermined:
+            return .blue
         case .authorizedWhenInUse, .authorizedAlways:
             return .blue
-        default:
+        @unknown default:
             return .blue
         }
-    }
-    
-    private var locationStatusView: some View {
-        VStack(spacing: 8) {
-            HStack {
-                Image(systemName: locationStatusIcon)
-                    .foregroundColor(locationStatusColor)
-                Text(locationStatusText)
-                    .font(.caption)
-                    .foregroundColor(locationStatusColor)
-            }
-            
-            if locationManager.authorizationStatus == .denied {
-                Text("Tap 'Open Settings' in the alert to enable location access")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 20)
-            }
-        }
-        .padding(.horizontal, 20)
     }
     
     private var locationStatusIcon: String {
-        switch locationManager.authorizationStatus {
+        switch weatherService.locationManager.authorizationStatus {
         case .denied, .restricted:
             return "exclamationmark.triangle.fill"
+        case .notDetermined:
+            return "questionmark.circle"
         case .authorizedWhenInUse, .authorizedAlways:
             return "checkmark.circle.fill"
-        default:
-            return "questionmark.circle.fill"
+        @unknown default:
+            return "questionmark.circle"
         }
     }
     
     private var locationStatusColor: Color {
-        switch locationManager.authorizationStatus {
+        switch weatherService.locationManager.authorizationStatus {
         case .denied, .restricted:
             return .red
+        case .notDetermined:
+            return .orange
         case .authorizedWhenInUse, .authorizedAlways:
             return .green
-        default:
+        @unknown default:
             return .orange
         }
     }
     
     private var locationStatusText: String {
-        switch locationManager.authorizationStatus {
-        case .denied:
+        switch weatherService.locationManager.authorizationStatus {
+        case .denied, .restricted:
             return "Location access denied"
-        case .restricted:
-            return "Location access restricted"
+        case .notDetermined:
+            return "Location permission not determined"
         case .authorizedWhenInUse, .authorizedAlways:
             return "Location access granted"
-        default:
-            return "Location permission not determined"
+        @unknown default:
+            return "Location permission unknown"
         }
     }
     
-    // MARK: - Helper Methods
+    private var locationStatusView: some View {
+        HStack(spacing: 8) {
+            Image(systemName: locationStatusIcon)
+                .foregroundColor(locationStatusColor)
+                .font(.caption)
+            Text(locationStatusText)
+                .font(.caption)
+                .foregroundColor(locationStatusColor)
+        }
+        .padding(.horizontal, 20)
+    }
+    
+    // MARK: - Methods
     
     private func handleLocationRequest() {
-        switch locationManager.authorizationStatus {
+        switch weatherService.locationManager.authorizationStatus {
         case .denied, .restricted:
             locationAlertMessage = "Location access is required to get weather for your current location. Please enable location access in Settings."
             showingLocationAlert = true
         case .notDetermined:
-            locationManager.requestLocation()
+            weatherService.locationManager.requestLocation()
         case .authorizedWhenInUse, .authorizedAlways:
-            locationManager.requestLocation()
+            weatherService.locationManager.requestLocation()
         @unknown default:
-            locationManager.requestLocation()
+            weatherService.locationManager.requestLocation()
         }
     }
-}
-
-// Extension to make WeatherDisplay conform to Identifiable for sheet presentation
-extension WeatherDisplay: Identifiable {
-    var id: String { cityName }
 }
 
 #Preview {

@@ -2,107 +2,84 @@ import SwiftUI
 
 struct WeatherView: View {
     let weather: WeatherDisplay
-    @State private var temperatureUnit: TemperatureUnit = .celsius
+    @State private var isCelsius = false
+    @EnvironmentObject var themeManager: ThemeManager
     
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                // Header with city name and current temperature
-                VStack(spacing: 8) {
+                // City name and current temperature
+                VStack(spacing: 10) {
                     Text(weather.cityName)
                         .font(.largeTitle)
                         .fontWeight(.bold)
-                        .foregroundColor(.primary)
+                        .multilineTextAlignment(.center)
                     
-                    Text(weather.temperature.formatTemperature(unit: temperatureUnit))
-                        .font(.system(size: 72, weight: .thin))
-                        .foregroundColor(.primary)
-                    
-                    // Debug info - show raw values
-                    VStack(spacing: 4) {
-                        Text("Raw: \(String(format: "%.2f", weather.temperature))K")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text("C: \(String(format: "%.1f", weather.temperature.toCelsius()))°C")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text("F: \(String(format: "%.1f", weather.temperature.toFahrenheit()))°F")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                    HStack(spacing: 15) {
+                        Text("\(isCelsius ? weather.temperature.toCelsius() : weather.temperature.toFahrenheit(), specifier: "%.0f")°")
+                            .font(.system(size: 60, weight: .thin))
+                            .foregroundColor(.primary)
                         
-                        // Note about potential discrepancy
-                        Text("Note: API data may be 5-15 min old")
-                            .font(.caption2)
-                            .foregroundColor(.orange)
-                            .padding(.top, 2)
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 8)
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(8)
-                    
-                    Text(weather.description.capitalized)
-                        .font(.title2)
-                        .foregroundColor(.secondary)
-                    
-                    // Temperature unit toggle
-                    Picker("Temperature Unit", selection: $temperatureUnit) {
-                        ForEach(TemperatureUnit.allCases, id: \.self) { unit in
-                            Text("°\(unit.rawValue)").tag(unit)
+                        VStack(alignment: .leading, spacing: 5) {
+                            Button(action: {
+                                isCelsius.toggle()
+                            }) {
+                                HStack(spacing: 5) {
+                                    Text(isCelsius ? "°C" : "°F")
+                                        .font(.title2)
+                                        .fontWeight(.semibold)
+                                    Image(systemName: "arrow.up.arrow.down")
+                                        .font(.caption)
+                                }
+                                .foregroundColor(.blue)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.blue.opacity(0.1))
+                                .cornerRadius(8)
+                            }
+                            
+                            Text(weather.description.capitalized)
+                                .font(.title3)
+                                .foregroundColor(.secondary)
                         }
                     }
-                    .pickerStyle(SegmentedPickerStyle())
-                    .frame(width: 120)
                 }
                 .padding(.top, 20)
                 
-                // High/Low temperature
-                HStack(spacing: 30) {
+                // High and Low temperatures
+                HStack(spacing: 40) {
                     VStack {
+                        Image(systemName: "thermometer.sun.fill")
+                            .font(.title2)
+                            .foregroundColor(.red)
                         Text("High")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        Text(weather.highTemp.formatTemperature(unit: temperatureUnit))
-                            .font(.title2)
+                        Text("\(isCelsius ? weather.highTemp.toCelsius() : weather.highTemp.toFahrenheit(), specifier: "%.0f")°")
+                            .font(.title3)
                             .fontWeight(.semibold)
                     }
                     
                     VStack {
+                        Image(systemName: "thermometer.snowflake")
+                            .font(.title2)
+                            .foregroundColor(.blue)
                         Text("Low")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        Text(weather.lowTemp.formatTemperature(unit: temperatureUnit))
-                            .font(.title2)
+                        Text("\(isCelsius ? weather.lowTemp.toCelsius() : weather.lowTemp.toFahrenheit(), specifier: "%.0f")°")
+                            .font(.title3)
                             .fontWeight(.semibold)
                     }
                 }
-                .padding(.vertical, 10)
-                
-                // Feels like temperature
-                HStack {
-                    Image(systemName: "thermometer")
-                        .foregroundColor(.orange)
-                    Text("Feels like \(weather.feelsLike.formatTemperature(unit: temperatureUnit))")
-                        .font(.title3)
-                }
                 .padding(.horizontal, 20)
-                .padding(.vertical, 10)
-                .background(Color.orange.opacity(0.1))
-                .cornerRadius(10)
                 
-                // Weather details grid
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 20) {
-                    WeatherDetailCard(
-                        icon: "humidity",
-                        title: "Humidity",
-                        value: "\(weather.humidity)%",
-                        color: .blue
-                    )
-                    
+                // Weather detail cards
+                HStack(spacing: 20) {
                     WeatherDetailCard(
                         icon: "thermometer",
                         title: "Feels Like",
-                        value: String(format: "%.0f°", weather.feelsLike.toFahrenheit()),
+                        value: String(format: "%.0f°", isCelsius ? weather.feelsLike.toCelsius() : weather.feelsLike.toFahrenheit()),
                         color: .orange
                     )
                     
@@ -254,6 +231,7 @@ struct WeatherDetailCard: View {
     let title: String
     let value: String
     let color: Color
+    @EnvironmentObject var themeManager: ThemeManager
     
     var body: some View {
         VStack(spacing: 12) {
@@ -263,19 +241,20 @@ struct WeatherDetailCard: View {
             
             Text(title)
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(themeManager.isDarkMode ? .white.opacity(0.8) : .secondary)
                 .multilineTextAlignment(.center)
             
             Text(value)
                 .font(.title3)
                 .fontWeight(.semibold)
+                .foregroundColor(themeManager.isDarkMode ? .white : .primary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 20)
-        .background(Color.white.opacity(0.8))
+        .background(themeManager.isDarkMode ? Color(.systemGray5) : Color.white.opacity(0.8))
         .cornerRadius(15)
-        .shadow(color: .black.opacity(0.1), radius: 5, x: 0, y: 2)
+        .shadow(color: themeManager.isDarkMode ? .clear : .black.opacity(0.1), radius: 5, x: 0, y: 2)
     }
 }
 
@@ -298,4 +277,5 @@ struct WeatherDetailCard: View {
     )
     
     WeatherView(weather: sampleWeather)
+        .environmentObject(ThemeManager())
 }

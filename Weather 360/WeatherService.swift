@@ -4,6 +4,27 @@ import os.log
 import Network
 import CoreLocation
 
+// MARK: - Theme Manager
+class ThemeManager: ObservableObject {
+    @Published var isDarkMode: Bool = false
+    
+    init() {
+        // Check if user has set a preference
+        if let savedTheme = UserDefaults.standard.object(forKey: "isDarkMode") as? Bool {
+            isDarkMode = savedTheme
+        } else {
+            // Default to light mode
+            isDarkMode = false
+        }
+    }
+    
+    func toggleTheme() {
+        isDarkMode.toggle()
+        UserDefaults.standard.set(isDarkMode, forKey: "isDarkMode")
+    }
+}
+
+// MARK: - Weather Service
 class WeatherService: ObservableObject {
     @Published var weather: WeatherDisplay?
     @Published var isLoading = false
@@ -14,7 +35,7 @@ class WeatherService: ObservableObject {
     private let logger = Logger(subsystem: "com.weatherapp", category: "WeatherService")
     private let networkMonitor = NWPathMonitor()
     private var isNetworkReachable = false
-    private let locationManager = LocationManager()
+    let locationManager = LocationManager()
     
     init() {
         // Test temperature conversions on initialization
@@ -25,6 +46,12 @@ class WeatherService: ObservableObject {
         
         // Test API connectivity
         testAPIConnectivity()
+        
+        // Connect location updates to weather fetching
+        locationManager.onLocationReceived = { [weak self] location in
+            print("📍 [DEBUG] WeatherService: Location received, fetching weather...")
+            self?.fetchWeatherByCoordinates(lat: location.coordinate.latitude, lon: location.coordinate.longitude)
+        }
     }
     
     private func setupNetworkMonitoring() {
@@ -535,40 +562,67 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let locationManager = CLLocationManager()
     @Published var location: CLLocation?
     @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
+    @Published var currentCity: String = "Unknown Location"
+    
+    // Add completion handler for location updates
+    var onLocationReceived: ((CLLocation) -> Void)?
     
     override init() {
         super.init()
         locationManager.delegate = self
-        locationManager.desiredAccuracy = kCLLocationAccuracyBest
+        locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters // Better for city-level accuracy
+        locationManager.distanceFilter = 1000 // Update location when user moves 1km
         
         // Check current authorization status
         authorizationStatus = locationManager.authorizationStatus
     }
     
     func requestLocation() {
-        print("📍 [DEBUG] LocationManager: Requesting location...")
-        print("📍 [DEBUG] Current authorization status: \(authorizationStatus.rawValue)")
-        
-        switch authorizationStatus {
-        case .notDetermined:
-            print("📍 [DEBUG] Requesting permission...")
-            locationManager.requestWhenInUseAuthorization()
-        case .denied, .restricted:
-            print("📍 [DEBUG] Location access denied or restricted")
-            // We'll handle this in the UI
-        case .authorizedWhenInUse, .authorizedAlways:
-            print("📍 [DEBUG] Permission granted, requesting location...")
-            locationManager.requestLocation()
-        @unknown default:
-            print("📍 [DEBUG] Unknown authorization status")
-            locationManager.requestWhenInUseAuthorization()
-        }
+        print("📍 [DEBUG] Requesting location...")
+        locationManager.requestLocation()
     }
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
         print("📍 [DEBUG] Location received: \(location.coordinate)")
-        self.location = location
+        print("📍 [DEBUG] Location accuracy: \(location.horizontalAccuracy) meters")
+        print("📍 [DEBUG] Location timestamp: \(location.timestamp)")
+        
+        // Only use location if it's recent and accurate
+        let timeSinceUpdate = Date().timeIntervalSince(location.timestamp)
+        if timeSinceUpdate < 30 && location.horizontalAccuracy <= 1000 {
+            self.location = location
+            print("📍 [DEBUG] Location accepted and stored")
+            
+            // Reverse geocode to get city name
+            reverseGeocodeLocation(location)
+            
+            // Notify the weather service that location was received
+            onLocationReceived?(location)
+        } else {
+            print("📍 [DEBUG] Location rejected - too old or inaccurate")
+        }
+    }
+    
+    private func reverseGeocodeLocation(_ location: CLLocation) {
+        let geocoder = CLGeocoder()
+        geocoder.reverseGeocodeLocation(location) { [weak self] placemarks, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("📍 [DEBUG] Reverse geocoding error: \(error.localizedDescription)")
+                    return
+                }
+                
+                if let placemark = placemarks?.first {
+                    let city = placemark.locality ?? placemark.administrativeArea ?? "Unknown City"
+                    let state = placemark.administrativeArea ?? ""
+                    let country = placemark.country ?? ""
+                    
+                    self?.currentCity = city
+                    print("📍 [DEBUG] Reverse geocoded to: \(city), \(state), \(country)")
+                }
+            }
+        }
     }
     
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
