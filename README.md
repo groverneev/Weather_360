@@ -29,7 +29,7 @@ A beautiful, modern iOS weather application built with SwiftUI that provides com
 ### 2. Configure API Key
 
 **Option A: Use Template (Recommended)**
-1. Copy `Weather 360/Config.template.swift` to `Weather 360/Config.swift`
+1. Copy `Config.template.swift` from the root directory to `Weather 360/Config.swift`
 2. Replace `"YOUR_API_KEY_HERE"` with your actual API key
 3. The `Config.swift` file is already in `.gitignore` and won't be pushed to GitHub
 
