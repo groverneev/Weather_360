@@ -608,35 +608,35 @@ class WeatherService: ObservableObject {
         let now = Date()
         let calendar = Calendar.current
         
-        // We need 5 data points: 12h ago, 6h ago, current, 6h ahead, 12h ahead
+        // We need 5 data points: Now, 6h ahead, 12h ahead, 18h ahead, 24h ahead
         var chartData: [HourlyForecast] = []
         
-        // 1. 12 hours ago
-        if let twelveHoursAgo = calendar.date(byAdding: .hour, value: -12, to: now) {
-            let temp = getTemperatureForTime(twelveHoursAgo, from: forecastData, timezoneOffset: timezoneOffset)
-            chartData.append(HourlyForecast(time: twelveHoursAgo, temperature: temp))
-        }
-        
-        // 2. 6 hours ago
-        if let sixHoursAgo = calendar.date(byAdding: .hour, value: -6, to: now) {
-            let temp = getTemperatureForTime(sixHoursAgo, from: forecastData, timezoneOffset: timezoneOffset)
-            chartData.append(HourlyForecast(time: sixHoursAgo, temperature: temp))
-        }
-        
-        // 3. Current time (use current weather temperature)
+        // 1. Current time (use current weather temperature)
         let currentTemp = getCurrentTemperature(from: forecastData, timezoneOffset: timezoneOffset)
         chartData.append(HourlyForecast(time: now, temperature: currentTemp))
         
-        // 4. 6 hours ahead
+        // 2. 6 hours ahead (3:00 PM, 6:00 PM, 9:00 PM, or 12:00 AM)
         if let sixHoursAhead = calendar.date(byAdding: .hour, value: 6, to: now) {
             let temp = getTemperatureForTime(sixHoursAhead, from: forecastData, timezoneOffset: timezoneOffset)
             chartData.append(HourlyForecast(time: sixHoursAhead, temperature: temp))
         }
         
-        // 5. 12 hours ahead
+        // 3. 12 hours ahead (9:00 PM, 12:00 AM, 3:00 AM, or 6:00 AM)
         if let twelveHoursAhead = calendar.date(byAdding: .hour, value: 12, to: now) {
             let temp = getTemperatureForTime(twelveHoursAhead, from: forecastData, timezoneOffset: timezoneOffset)
             chartData.append(HourlyForecast(time: twelveHoursAhead, temperature: temp))
+        }
+        
+        // 4. 18 hours ahead (3:00 AM, 6:00 AM, 9:00 AM, or 12:00 PM)
+        if let eighteenHoursAhead = calendar.date(byAdding: .hour, value: 18, to: now) {
+            let temp = getTemperatureForTime(eighteenHoursAhead, from: forecastData, timezoneOffset: timezoneOffset)
+            chartData.append(HourlyForecast(time: eighteenHoursAhead, temperature: temp))
+        }
+        
+        // 5. 24 hours ahead (6:00 AM, 9:00 AM, 12:00 PM, or 3:00 PM)
+        if let twentyFourHoursAhead = calendar.date(byAdding: .hour, value: 24, to: now) {
+            let temp = getTemperatureForTime(twentyFourHoursAhead, from: forecastData, timezoneOffset: timezoneOffset)
+            chartData.append(HourlyForecast(time: twentyFourHoursAhead, temperature: temp))
         }
         
         print("📊 [DEBUG] Chart data points:")

@@ -101,7 +101,7 @@ struct WeatherDisplay: Identifiable {
         self.timezoneOffset = response.timezone
         
         // Convert UTC times to city's local timezone
-        let cityTimezone = TimeZone(secondsFromGMT: response.timezone) ?? TimeZone.current
+        _ = TimeZone(secondsFromGMT: response.timezone) ?? TimeZone.current
         self.sunrise = Date(timeIntervalSince1970: TimeInterval(response.sys.sunrise))
         self.sunset = Date(timeIntervalSince1970: TimeInterval(response.sys.sunset))
         

@@ -74,11 +74,11 @@ struct WeatherView: View {
                 }
                 .padding(.horizontal, 20)
                 
-                // Temperature Chart
-                VStack(spacing: 15) {
-                    Text("24-Hour Temperature Trend")
-                        .font(.headline)
-                        .foregroundColor(.primary)
+                                        // Temperature Chart
+                        VStack(spacing: 15) {
+                            Text("24-Hour Temperature Forecast")
+                                .font(.headline)
+                                .foregroundColor(.primary)
                     
                     TemperatureChart(
                         currentTemp: weather.temperature,
@@ -309,121 +309,132 @@ struct TemperatureChart: View {
     
     var body: some View {
         VStack(spacing: 10) {
-            // Chart container
-            ZStack {
-                // Background grid with temperature labels
-                let minTemp = temperatureData.map { $0.temperature }.min() ?? 0
-                let maxTemp = temperatureData.map { $0.temperature }.max() ?? 1
-                let tempRange = maxTemp - minTemp
-                
+
+            
+            // Temperature labels positioned to the left of the chart
+            let minTemp = temperatureData.map { $0.temperature }.min() ?? 0
+            let maxTemp = temperatureData.map { $0.temperature }.max() ?? 1
+            let tempRange = maxTemp - minTemp
+            
+            HStack(spacing: 0) {
+                // Temperature labels column on the left (50px wide)
                 VStack(spacing: 0) {
                     ForEach(0..<6, id: \.self) { index in
-                        HStack {
-                            // Temperature label on the left
-                            let tempValue = maxTemp - (tempRange * Double(index) / 5.0)
-                            
-                            Text(isCelsius ? String(format: "%.0f°C", tempValue.toCelsius()) : String(format: "%.0f°F", tempValue.toFahrenheit()))
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                                .frame(width: 40, alignment: .trailing)
-                            
+                        let tempValue = maxTemp - (tempRange * Double(index) / 5.0)
+                        
+                        Text(isCelsius ? String(format: "%.0f°C", tempValue.toCelsius()) : String(format: "%.0f°F", tempValue.toFahrenheit()))
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .frame(width: 50, alignment: .trailing)
+                            .frame(height: 20)
+                    }
+                }
+                .frame(width: 50)
+                
+                // Spacing between temperature labels and chart
+                Spacer()
+                    .frame(width: 15)
+                
+                // Chart container
+                ZStack {
+                    // Background grid lines only (no labels inside chart)
+                    VStack(spacing: 0) {
+                        ForEach(0..<6, id: \.self) { index in
                             Divider()
                                 .opacity(0.3)
+                                .frame(height: 20)
                         }
-                        Spacer()
                     }
-                }
-                
-                // Vertical time grid lines (5 lines: 12h ago, 6h ago, current, 6h ahead, 12h ahead)
-                HStack(spacing: 0) {
-                    ForEach(0..<5, id: \.self) { index in
-                        VStack {
-                            Divider()
-                                .opacity(0.2)
-                                .rotationEffect(.degrees(90))
-                                .frame(height: 120)
+                    
+                    // Vertical time grid lines (5 lines: 12h ago, 6h ago, current, 6h ahead, 12h ahead)
+                    HStack(spacing: 0) {
+                        ForEach(0..<5, id: \.self) { index in
+                            VStack {
+                                Divider()
+                                    .opacity(0.2)
+                                    .rotationEffect(.degrees(90))
+                                    .frame(height: 120)
+                                Spacer()
+                            }
                             Spacer()
                         }
-                        Spacer()
                     }
-                }
-                
-                // Temperature line
-                Path { path in
-                    let width: CGFloat = 300 // Fixed width for simplicity
-                    let height: CGFloat = 120
                     
-                    guard temperatureData.count >= 5 else { return }
+                    // Temperature line
+                    Path { path in
+                        let width: CGFloat = 300 // Fixed width for simplicity
+                        let height: CGFloat = 120
+                        
+                        guard temperatureData.count >= 5 else { return }
+                        
+                        // We have exactly 5 data points: 12h ago, 6h ago, current, 6h ahead, 12h ahead
+                        let xStep = width / 4.0 // 4 intervals between 5 points
+                        let minTemp = temperatureData.map { $0.temperature }.min() ?? 0
+                        let maxTemp = temperatureData.map { $0.temperature }.max() ?? 0
+                        let tempRange = maxTemp - minTemp
+                        
+                        // Start with the first point (12h ago)
+                        let startX: CGFloat = 0
+                        let startY = height - (CGFloat(temperatureData[0].temperature - minTemp) / CGFloat(tempRange)) * height
+                        path.move(to: CGPoint(x: startX, y: startY))
+                        
+                        // Plot all 5 data points
+                        for (index, point) in temperatureData.enumerated() {
+                            let x = CGFloat(index) * xStep
+                            let y = height - (CGFloat(point.temperature - minTemp) / CGFloat(tempRange)) * height
+                            path.addLine(to: CGPoint(x: x, y: y))
+                        }
+                    }
+                    .stroke(
+                        LinearGradient(
+                            gradient: Gradient(colors: [.blue, .cyan, .green]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
+                    )
                     
-                    // We have exactly 5 data points: 12h ago, 6h ago, current, 6h ahead, 12h ahead
-                    let xStep = width / 4.0 // 4 intervals between 5 points
+                    // Current temperature indicator (positioned at current time point)
                     let minTemp = temperatureData.map { $0.temperature }.min() ?? 0
                     let maxTemp = temperatureData.map { $0.temperature }.max() ?? 0
                     let tempRange = maxTemp - minTemp
+                    let currentY = 60 - (CGFloat(currentTemp - minTemp) / CGFloat(tempRange)) * 120
                     
-                    // Start with the first point (12h ago)
-                    let startX: CGFloat = 0
-                    let startY = height - (CGFloat(temperatureData[0].temperature - minTemp) / CGFloat(tempRange)) * height
-                    path.move(to: CGPoint(x: startX, y: startY))
-                    
-                    // Plot all 5 data points
-                    for (index, point) in temperatureData.enumerated() {
-                        let x = CGFloat(index) * xStep
-                        let y = height - (CGFloat(point.temperature - minTemp) / CGFloat(tempRange)) * height
-                        path.addLine(to: CGPoint(x: x, y: y))
-                    }
+                    Circle()
+                        .fill(Color.orange)
+                        .frame(width: 12, height: 12)
+                        .shadow(color: .orange.opacity(0.5), radius: 4)
+                        .position(x: 150, y: currentY) // Center position (index 2 of 5 points)
                 }
-                .stroke(
-                    LinearGradient(
-                        gradient: Gradient(colors: [.blue, .cyan, .green]),
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
-                    style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
+                .frame(width: 300, height: 120)
+                .background(Color(.systemBackground).opacity(0.8))
+                .cornerRadius(15)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 15)
+                        .stroke(Color.blue.opacity(0.3), lineWidth: 1)
                 )
                 
-                // Current temperature indicator (positioned at current time point)
-                let currentY = 60 - (CGFloat(currentTemp - minTemp) / CGFloat(tempRange)) * 120
-                
-                Circle()
-                    .fill(Color.orange)
-                    .frame(width: 12, height: 12)
-                    .shadow(color: .orange.opacity(0.5), radius: 4)
-                    .position(x: 150, y: currentY) // Center position (index 2 of 5 points)
+                // Empty space to balance the layout
+                Spacer()
             }
-            .frame(width: 300, height: 120)
-            .background(Color(.systemBackground).opacity(0.8))
-            .cornerRadius(15)
-            .overlay(
-                RoundedRectangle(cornerRadius: 15)
-                    .stroke(Color.blue.opacity(0.3), lineWidth: 1)
-            )
             
-            // Time labels (5 points: 12h ago, 6h ago, current, 6h ahead, 12h ahead)
+            // Time labels (5 points: Now, 6h ahead, 12h ahead, 18h ahead, 24h ahead)
             HStack(spacing: 0) {
                 ForEach(0..<5, id: \.self) { index in
                     VStack {
-                        if index == 0 {
-                            Text("12h ago")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        } else if index == 1 {
-                            Text("6h ago")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        } else if index == 2 {
-                            Text("Now")
-                                .font(.caption2)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.orange)
-                        } else if index == 3 {
-                            Text("6h ahead")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        } else {
-                            Text("12h ahead")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
+                        if index < temperatureData.count {
+                            let time = temperatureData[index].time
+                            
+                            if index == 0 {
+                                Text("Now")
+                                    .font(.caption2)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.orange)
+                            } else {
+                                Text(time, style: .time)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
                         }
                     }
                     .frame(maxWidth: .infinity)
