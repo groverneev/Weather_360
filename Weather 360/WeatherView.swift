@@ -74,6 +74,21 @@ struct WeatherView: View {
                 }
                 .padding(.horizontal, 20)
                 
+                // Temperature Chart
+                VStack(spacing: 15) {
+                    Text("24-Hour Temperature Trend")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    TemperatureChart(
+                        currentTemp: weather.temperature,
+                        isCelsius: isCelsius,
+                        timezoneOffset: weather.timezoneOffset,
+                        hourlyForecast: weather.hourlyForecast
+                    )
+                }
+                .padding(.horizontal, 20)
+                
                 // Weather detail cards
                 HStack(spacing: 20) {
                     WeatherDetailCard(
@@ -258,6 +273,173 @@ struct WeatherDetailCard: View {
     }
 }
 
+// MARK: - Temperature Chart Component
+struct TemperatureChart: View {
+    let currentTemp: Double
+    let isCelsius: Bool
+    let timezoneOffset: Int
+    let hourlyForecast: [HourlyForecast]
+    
+    // Use real forecast data if available, otherwise generate sample data
+    private var temperatureData: [TemperaturePoint] {
+        if !hourlyForecast.isEmpty {
+            // Use real forecast data
+            return hourlyForecast.map { forecast in
+                TemperaturePoint(time: forecast.time, temperature: forecast.temperature)
+            }
+        } else {
+            // Fallback to realistic sample data (only when no API data available)
+            let now = Date()
+            let calendar = Calendar.current
+            
+            var data: [TemperaturePoint] = []
+            
+            // Generate 25 data points (12h ago to 12h ahead, including current)
+            for hour in stride(from: -12, through: 12, by: 1) {
+                let time = calendar.date(byAdding: .hour, value: hour, to: now) ?? now
+                // More realistic temperature variation based on time of day
+                let baseVariation = sin(Double(hour) * .pi / 12) * 3 // Natural daily cycle
+                let temp = currentTemp + baseVariation
+                data.append(TemperaturePoint(time: time, temperature: temp))
+            }
+            
+            return data
+        }
+    }
+    
+    var body: some View {
+        VStack(spacing: 10) {
+            // Chart container
+            ZStack {
+                // Background grid with temperature labels
+                let minTemp = temperatureData.map { $0.temperature }.min() ?? 0
+                let maxTemp = temperatureData.map { $0.temperature }.max() ?? 1
+                let tempRange = maxTemp - minTemp
+                
+                VStack(spacing: 0) {
+                    ForEach(0..<6, id: \.self) { index in
+                        HStack {
+                            // Temperature label on the left
+                            let tempValue = maxTemp - (tempRange * Double(index) / 5.0)
+                            
+                            Text(isCelsius ? String(format: "%.0f°C", tempValue.toCelsius()) : String(format: "%.0f°F", tempValue.toFahrenheit()))
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                .frame(width: 40, alignment: .trailing)
+                            
+                            Divider()
+                                .opacity(0.3)
+                        }
+                        Spacer()
+                    }
+                }
+                
+                // Vertical time grid lines (5 lines: 12h ago, 6h ago, current, 6h ahead, 12h ahead)
+                HStack(spacing: 0) {
+                    ForEach(0..<5, id: \.self) { index in
+                        VStack {
+                            Divider()
+                                .opacity(0.2)
+                                .rotationEffect(.degrees(90))
+                                .frame(height: 120)
+                            Spacer()
+                        }
+                        Spacer()
+                    }
+                }
+                
+                // Temperature line
+                Path { path in
+                    let width: CGFloat = 300 // Fixed width for simplicity
+                    let height: CGFloat = 120
+                    
+                    guard temperatureData.count >= 5 else { return }
+                    
+                    // We have exactly 5 data points: 12h ago, 6h ago, current, 6h ahead, 12h ahead
+                    let xStep = width / 4.0 // 4 intervals between 5 points
+                    let minTemp = temperatureData.map { $0.temperature }.min() ?? 0
+                    let maxTemp = temperatureData.map { $0.temperature }.max() ?? 0
+                    let tempRange = maxTemp - minTemp
+                    
+                    // Start with the first point (12h ago)
+                    let startX: CGFloat = 0
+                    let startY = height - (CGFloat(temperatureData[0].temperature - minTemp) / CGFloat(tempRange)) * height
+                    path.move(to: CGPoint(x: startX, y: startY))
+                    
+                    // Plot all 5 data points
+                    for (index, point) in temperatureData.enumerated() {
+                        let x = CGFloat(index) * xStep
+                        let y = height - (CGFloat(point.temperature - minTemp) / CGFloat(tempRange)) * height
+                        path.addLine(to: CGPoint(x: x, y: y))
+                    }
+                }
+                .stroke(
+                    LinearGradient(
+                        gradient: Gradient(colors: [.blue, .cyan, .green]),
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
+                )
+                
+                // Current temperature indicator (positioned at current time point)
+                let currentY = 60 - (CGFloat(currentTemp - minTemp) / CGFloat(tempRange)) * 120
+                
+                Circle()
+                    .fill(Color.orange)
+                    .frame(width: 12, height: 12)
+                    .shadow(color: .orange.opacity(0.5), radius: 4)
+                    .position(x: 150, y: currentY) // Center position (index 2 of 5 points)
+            }
+            .frame(width: 300, height: 120)
+            .background(Color(.systemBackground).opacity(0.8))
+            .cornerRadius(15)
+            .overlay(
+                RoundedRectangle(cornerRadius: 15)
+                    .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+            )
+            
+            // Time labels (5 points: 12h ago, 6h ago, current, 6h ahead, 12h ahead)
+            HStack(spacing: 0) {
+                ForEach(0..<5, id: \.self) { index in
+                    VStack {
+                        if index == 0 {
+                            Text("12h ago")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        } else if index == 1 {
+                            Text("6h ago")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        } else if index == 2 {
+                            Text("Now")
+                                .font(.caption2)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.orange)
+                        } else if index == 3 {
+                            Text("6h ahead")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        } else {
+                            Text("12h ahead")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(.horizontal, 20)
+        }
+    }
+}
+
+// MARK: - Temperature Point Model
+struct TemperaturePoint {
+    let time: Date
+    let temperature: Double
+}
+
 #Preview {
     let sampleWeather = WeatherDisplay(
         cityName: "San Francisco",
@@ -273,7 +455,8 @@ struct WeatherDetailCard: View {
         icon: "02d",
         sunrise: Date(),
         sunset: Date().addingTimeInterval(3600 * 12),
-        timezoneOffset: -28800 // Pacific Time (UTC-8)
+        timezoneOffset: -28800, // Pacific Time (UTC-8)
+        hourlyForecast: [] // Empty for preview
     )
     
     WeatherView(weather: sampleWeather)

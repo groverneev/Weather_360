@@ -340,31 +340,46 @@ class WeatherService: ObservableObject {
                     // Create weather display object
                     let weatherDisplay = WeatherDisplay(from: response)
                     
-                    // Fetch air quality data and update the display
+                    // Fetch air quality and forecast data, then update the display
+                    let group = DispatchGroup()
+                    var airQualityIndex = 3
+                    var hourlyForecasts: [HourlyForecast] = []
+                    
+                    group.enter()
                     self?.fetchAirQuality(lat: response.coord.lat, lon: response.coord.lon) { aqi in
-                        DispatchQueue.main.async {
-                            // Create a new WeatherDisplay with the air quality data
-                            let updatedWeatherDisplay = WeatherDisplay(
-                                cityName: weatherDisplay.cityName,
-                                temperature: weatherDisplay.temperature,
-                                feelsLike: weatherDisplay.feelsLike,
-                                highTemp: weatherDisplay.highTemp,
-                                lowTemp: weatherDisplay.lowTemp,
-                                humidity: weatherDisplay.humidity,
-                                airQualityIndex: aqi,
-                                windSpeed: weatherDisplay.windSpeed,
-                                windDirection: weatherDisplay.windDirection,
-                                description: weatherDisplay.description,
-                                icon: weatherDisplay.icon,
-                                sunrise: weatherDisplay.sunrise,
-                                sunset: weatherDisplay.sunset,
-                                timezoneOffset: weatherDisplay.timezoneOffset
-                            )
-                            
-                            self?.weather = updatedWeatherDisplay
-                            self?.isLoading = false
-                            self?.errorMessage = nil
-                        }
+                        airQualityIndex = aqi
+                        group.leave()
+                    }
+                    
+                    group.enter()
+                    self?.fetchForecast(lat: response.coord.lat, lon: response.coord.lon) { forecasts in
+                        hourlyForecasts = forecasts
+                        group.leave()
+                    }
+                    
+                    group.notify(queue: .main) {
+                        // Create a new WeatherDisplay with all the data
+                        let updatedWeatherDisplay = WeatherDisplay(
+                            cityName: weatherDisplay.cityName,
+                            temperature: weatherDisplay.temperature,
+                            feelsLike: weatherDisplay.feelsLike,
+                            highTemp: weatherDisplay.highTemp,
+                            lowTemp: weatherDisplay.lowTemp,
+                            humidity: weatherDisplay.humidity,
+                            airQualityIndex: airQualityIndex,
+                            windSpeed: weatherDisplay.windSpeed,
+                            windDirection: weatherDisplay.windDirection,
+                            description: weatherDisplay.description,
+                            icon: weatherDisplay.icon,
+                            sunrise: weatherDisplay.sunrise,
+                            sunset: weatherDisplay.sunset,
+                            timezoneOffset: weatherDisplay.timezoneOffset,
+                            hourlyForecast: hourlyForecasts
+                        )
+                        
+                        self?.weather = updatedWeatherDisplay
+                        self?.isLoading = false
+                        self?.errorMessage = nil
                     }
                     
                     self?.logger.info("🎉 Weather data successfully processed and displayed")
@@ -538,6 +553,124 @@ class WeatherService: ObservableObject {
                 }
             }
         }.resume()
+    }
+    
+    // MARK: - Forecast Methods
+    
+    private func fetchForecast(lat: Double, lon: Double, completion: @escaping ([HourlyForecast]) -> Void) {
+        let urlString = "\(Config.forecastBaseURL)?lat=\(lat)&lon=\(lon)&appid=\(apiKey)"
+        
+        guard let url = URL(string: urlString) else {
+            print("❌ [DEBUG] Invalid forecast URL")
+            completion([])
+            return
+        }
+        
+        print("📊 [DEBUG] Fetching forecast from: \(urlString)")
+        
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("❌ [DEBUG] Forecast fetch error: \(error.localizedDescription)")
+                    completion([])
+                    return
+                }
+                
+                guard let data = data else {
+                    print("❌ [DEBUG] No forecast data received")
+                    completion([])
+                    return
+                }
+                
+                do {
+                    let forecastResponse = try JSONDecoder().decode(ForecastResponse.self, from: data)
+                    print("📊 [DEBUG] Raw forecast response: \(forecastResponse.list.count) data points")
+                    
+                    // Process forecast data to get the 5 key time points we need for the chart
+                    let processedForecasts = self.processForecastForChart(
+                        forecastData: forecastResponse.list,
+                        timezoneOffset: forecastResponse.city.timezone
+                    )
+                    
+                    print("📊 [DEBUG] Processed \(processedForecasts.count) chart data points")
+                    completion(processedForecasts)
+                } catch {
+                    print("❌ [DEBUG] Forecast JSON decode error: \(error)")
+                    completion([])
+                }
+            }
+        }.resume()
+    }
+    
+    // MARK: - Chart Data Processing
+    
+    private func processForecastForChart(forecastData: [ForecastItem], timezoneOffset: Int) -> [HourlyForecast] {
+        let now = Date()
+        let calendar = Calendar.current
+        
+        // We need 5 data points: 12h ago, 6h ago, current, 6h ahead, 12h ahead
+        var chartData: [HourlyForecast] = []
+        
+        // 1. 12 hours ago
+        if let twelveHoursAgo = calendar.date(byAdding: .hour, value: -12, to: now) {
+            let temp = getTemperatureForTime(twelveHoursAgo, from: forecastData, timezoneOffset: timezoneOffset)
+            chartData.append(HourlyForecast(time: twelveHoursAgo, temperature: temp))
+        }
+        
+        // 2. 6 hours ago
+        if let sixHoursAgo = calendar.date(byAdding: .hour, value: -6, to: now) {
+            let temp = getTemperatureForTime(sixHoursAgo, from: forecastData, timezoneOffset: timezoneOffset)
+            chartData.append(HourlyForecast(time: sixHoursAgo, temperature: temp))
+        }
+        
+        // 3. Current time (use current weather temperature)
+        let currentTemp = getCurrentTemperature(from: forecastData, timezoneOffset: timezoneOffset)
+        chartData.append(HourlyForecast(time: now, temperature: currentTemp))
+        
+        // 4. 6 hours ahead
+        if let sixHoursAhead = calendar.date(byAdding: .hour, value: 6, to: now) {
+            let temp = getTemperatureForTime(sixHoursAhead, from: forecastData, timezoneOffset: timezoneOffset)
+            chartData.append(HourlyForecast(time: sixHoursAhead, temperature: temp))
+        }
+        
+        // 5. 12 hours ahead
+        if let twelveHoursAhead = calendar.date(byAdding: .hour, value: 12, to: now) {
+            let temp = getTemperatureForTime(twelveHoursAhead, from: forecastData, timezoneOffset: timezoneOffset)
+            chartData.append(HourlyForecast(time: twelveHoursAhead, temperature: temp))
+        }
+        
+        print("📊 [DEBUG] Chart data points:")
+        for (index, forecast) in chartData.enumerated() {
+            let formatter = DateFormatter()
+            formatter.timeStyle = .short
+            print("   \(index): \(formatter.string(from: forecast.time)) - \(forecast.temperature.toCelsius())°C")
+        }
+        
+        return chartData
+    }
+    
+    private func getTemperatureForTime(_ targetTime: Date, from forecastData: [ForecastItem], timezoneOffset: Int) -> Double {
+        // Find the closest forecast data point to the target time
+        var closestItem: ForecastItem?
+        var smallestTimeDifference = Double.greatestFiniteMagnitude
+        
+        for item in forecastData {
+            let itemTime = Date(timeIntervalSince1970: TimeInterval(item.dt))
+            let timeDifference = abs(targetTime.timeIntervalSince(itemTime))
+            
+            if timeDifference < smallestTimeDifference {
+                smallestTimeDifference = timeDifference
+                closestItem = item
+            }
+        }
+        
+        // Return the temperature from the closest forecast item, or a default if none found
+        return closestItem?.main.temp ?? 293.15 // Default to 20°C (293.15K)
+    }
+    
+    private func getCurrentTemperature(from forecastData: [ForecastItem], timezoneOffset: Int) -> Double {
+        let now = Date()
+        return getTemperatureForTime(now, from: forecastData, timezoneOffset: timezoneOffset)
     }
     
     // MARK: - Location Services

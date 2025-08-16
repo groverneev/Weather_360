@@ -84,6 +84,7 @@ struct WeatherDisplay: Identifiable {
     let sunrise: Date
     let sunset: Date
     let timezoneOffset: Int // Timezone offset in seconds from UTC
+    let hourlyForecast: [HourlyForecast] // Hourly temperature data for chart
     
     init(from response: WeatherResponse) {
         self.cityName = response.name
@@ -103,10 +104,13 @@ struct WeatherDisplay: Identifiable {
         let cityTimezone = TimeZone(secondsFromGMT: response.timezone) ?? TimeZone.current
         self.sunrise = Date(timeIntervalSince1970: TimeInterval(response.sys.sunrise))
         self.sunset = Date(timeIntervalSince1970: TimeInterval(response.sys.sunset))
+        
+        // Initialize with empty forecast - will be populated by separate API call
+        self.hourlyForecast = []
     }
     
     // Custom initializer for previews and testing
-    init(cityName: String, temperature: Double, feelsLike: Double, highTemp: Double, lowTemp: Double, humidity: Int, airQualityIndex: Int, windSpeed: Double, windDirection: Int, description: String, icon: String, sunrise: Date, sunset: Date, timezoneOffset: Int = 0) {
+    init(cityName: String, temperature: Double, feelsLike: Double, highTemp: Double, lowTemp: Double, humidity: Int, airQualityIndex: Int, windSpeed: Double, windDirection: Int, description: String, icon: String, sunrise: Date, sunset: Date, timezoneOffset: Int = 0, hourlyForecast: [HourlyForecast] = []) {
         self.cityName = cityName
         self.temperature = temperature
         self.feelsLike = feelsLike
@@ -121,6 +125,7 @@ struct WeatherDisplay: Identifiable {
         self.sunrise = sunrise
         self.sunset = sunset
         self.timezoneOffset = timezoneOffset
+        self.hourlyForecast = hourlyForecast
     }
 }
 
@@ -142,5 +147,59 @@ extension Int {
                          "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
         let index = Int(round(Double(self) / 22.5)) % 16
         return directions[index]
+    }
+}
+
+// MARK: - Forecast API Models
+struct ForecastResponse: Codable {
+    let list: [ForecastItem]
+    let city: ForecastCity
+}
+
+struct ForecastItem: Codable {
+    let dt: Int
+    let main: ForecastMain
+    let weather: [Weather]
+    let dtTxt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case dt, main, weather
+        case dtTxt = "dt_txt"
+    }
+}
+
+struct ForecastMain: Codable {
+    let temp: Double
+    let feelsLike: Double
+    let tempMin: Double
+    let tempMax: Double
+    let humidity: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case temp, humidity
+        case feelsLike = "feels_like"
+        case tempMin = "temp_min"
+        case tempMax = "temp_max"
+    }
+}
+
+struct ForecastCity: Codable {
+    let timezone: Int
+}
+
+// MARK: - Hourly Forecast Model for Chart
+struct HourlyForecast {
+    let time: Date
+    let temperature: Double
+    
+    init(from forecastItem: ForecastItem, timezoneOffset: Int) {
+        self.time = Date(timeIntervalSince1970: TimeInterval(forecastItem.dt))
+        self.temperature = forecastItem.main.temp
+    }
+    
+    // Custom initializer for chart data points
+    init(time: Date, temperature: Double) {
+        self.time = time
+        self.temperature = temperature
     }
 }
