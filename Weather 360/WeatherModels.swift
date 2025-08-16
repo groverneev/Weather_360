@@ -100,7 +100,7 @@ struct WeatherDisplay: Identifiable {
         self.timezoneOffset = response.timezone
         
         // Convert UTC times to city's local timezone
-        let cityTimezone = TimeZone(secondsFromGMT: response.timezone) ?? TimeZone.current
+        let _ = TimeZone(secondsFromGMT: response.timezone) ?? TimeZone.current
         self.sunrise = Date(timeIntervalSince1970: TimeInterval(response.sys.sunrise))
         self.sunset = Date(timeIntervalSince1970: TimeInterval(response.sys.sunset))
     }
@@ -124,14 +124,148 @@ struct WeatherDisplay: Identifiable {
     }
 }
 
+// MARK: - Forecast Models
+struct ForecastResponse: Codable {
+    let list: [ForecastItem]
+    let city: ForecastCity
+}
+
+struct ForecastItem: Codable {
+    let dt: Int
+    let main: ForecastMain
+    let weather: [Weather]
+    let clouds: Clouds
+    let wind: Wind
+    let visibility: Int
+    let pop: Double
+    let sys: ForecastSys
+    let dtTxt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case dt, main, weather, clouds, wind, visibility, pop, sys
+        case dtTxt = "dt_txt"
+    }
+}
+
+struct ForecastMain: Codable {
+    let temp: Double
+    let feelsLike: Double
+    let tempMin: Double
+    let tempMax: Double
+    let pressure: Int
+    let humidity: Int
+    let seaLevel: Int?
+    let grndLevel: Int?
+    
+    enum CodingKeys: String, CodingKey {
+        case temp, pressure, humidity
+        case feelsLike = "feels_like"
+        case tempMin = "temp_min"
+        case tempMax = "temp_max"
+        case seaLevel = "sea_level"
+        case grndLevel = "grnd_level"
+    }
+}
+
+struct ForecastSys: Codable {
+    let pod: String // Part of day: "d" for day, "n" for night
+}
+
+struct ForecastCity: Codable {
+    let id: Int
+    let name: String
+    let coord: Coordinates
+    let country: String
+    let population: Int
+    let timezone: Int
+    let sunrise: Int
+    let sunset: Int
+}
+
+// MARK: - Forecast Display Models
+struct HourlyForecast: Identifiable {
+    let id = UUID()
+    let time: Date
+    let temperature: Double
+    let icon: String
+    let description: String
+    let isSunset: Bool
+    
+    init(from forecastItem: ForecastItem, timezoneOffset: Int) {
+        self.time = Date(timeIntervalSince1970: TimeInterval(forecastItem.dt))
+        self.temperature = forecastItem.main.temp
+        self.icon = forecastItem.weather.first?.icon ?? ""
+        self.description = forecastItem.weather.first?.description ?? ""
+        
+        // Check if this is around sunset time (between 6 PM and 8 PM)
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: self.time)
+        self.isSunset = hour >= 18 && hour <= 20
+        
+        // Note: timezoneOffset is available for future use if needed
+        _ = timezoneOffset
+    }
+}
+
+struct DailyForecast: Identifiable {
+    let id = UUID()
+    let date: Date
+    let dayName: String
+    let icon: String
+    let lowTemp: Double
+    let highTemp: Double
+    let description: String
+    
+    init(from forecastItems: [ForecastItem], timezoneOffset: Int) {
+        // Group forecast items by day and calculate daily min/max
+        let calendar = Calendar.current
+        
+        // Find the first forecast item for this day
+        guard let firstItem = forecastItems.first else {
+            self.date = Date()
+            self.dayName = "Today"
+            self.icon = ""
+            self.lowTemp = 0
+            self.highTemp = 0
+            self.description = ""
+            return
+        }
+        
+        let date = Date(timeIntervalSince1970: TimeInterval(firstItem.dt))
+        self.date = date
+        
+        // Get day name
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE"
+        self.dayName = formatter.string(from: date)
+        
+        // Use the first item's weather for icon and description
+        self.icon = firstItem.weather.first?.icon ?? ""
+        self.description = firstItem.weather.first?.description ?? ""
+        
+        // Calculate daily min/max from all items for this day
+        let dayItems = forecastItems.filter { item in
+            let itemDate = Date(timeIntervalSince1970: TimeInterval(item.dt))
+            return calendar.isDate(itemDate, inSameDayAs: date)
+        }
+        
+        // Calculate min/max temperatures
+        let minTemp = dayItems.map({ $0.main.tempMin }).min() ?? firstItem.main.tempMin
+        let maxTemp = dayItems.map({ $0.main.tempMax }).max() ?? firstItem.main.tempMax
+        
+        self.lowTemp = minTemp
+        self.highTemp = maxTemp
+    }
+}
+
 // MARK: - Temperature Conversion
 extension Double {
     func toCelsius() -> Double {
-        return self - 273.15
+        return self
     }
     
     func toFahrenheit() -> Double {
-        return (self - 273.15) * 9/5 + 32
+        return self * 9/5 + 32
     }
 }
 

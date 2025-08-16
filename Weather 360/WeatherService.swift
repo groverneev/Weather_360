@@ -27,11 +27,14 @@ class ThemeManager: ObservableObject {
 // MARK: - Weather Service
 class WeatherService: ObservableObject {
     @Published var weather: WeatherDisplay?
+    @Published var hourlyForecasts: [HourlyForecast] = []
+    @Published var dailyForecasts: [DailyForecast] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
     
     private let apiKey = Config.openWeatherMapAPIKey
     private let baseURL = Config.openWeatherMapBaseURL
+    private let forecastURL = Config.forecastBaseURL
     private let logger = Logger(subsystem: "com.weatherapp", category: "WeatherService")
     private let networkMonitor = NWPathMonitor()
     private var isNetworkReachable = false
@@ -164,7 +167,7 @@ class WeatherService: ObservableObject {
             return
         }
         
-        let urlString = "\(baseURL)?q=\(encodedCity)&appid=\(apiKey)"
+        let urlString = "\(baseURL)?q=\(encodedCity)&appid=\(apiKey)&units=metric"
         logger.info("🔗 API URL: \(urlString)")
         print("🔗 [DEBUG] API URL: \(urlString)")
         
@@ -370,6 +373,9 @@ class WeatherService: ObservableObject {
                     self?.logger.info("🎉 Weather data successfully processed and displayed")
                     print("🎉 [DEBUG] Weather data successfully processed and displayed")
                     
+                    // Fetch forecast data after weather is loaded
+                    self?.fetchForecast(for: response.name)
+                    
                 } catch {
                     self?.logger.error("❌ Failed to decode weather response: \(error)")
                     print("❌ [DEBUG] Failed to decode weather response: \(error)")
@@ -402,7 +408,7 @@ class WeatherService: ObservableObject {
         
         logger.info("📍 Fetching weather for coordinates: lat=\(lat), lon=\(lon)")
         
-        let urlString = "\(baseURL)?lat=\(lat)&lon=\(lon)&appid=\(apiKey)"
+        let urlString = "\(baseURL)?lat=\(lat)&lon=\(lon)&appid=\(apiKey)&units=metric"
         logger.info("🔗 API URL: \(urlString)")
         
         guard let url = URL(string: urlString) else {
@@ -475,6 +481,9 @@ class WeatherService: ObservableObject {
                             self?.weather = updatedWeatherDisplay
                             self?.isLoading = false
                             self?.errorMessage = nil
+                            
+                            // Fetch forecast data after weather is loaded
+                            self?.fetchForecastByCoordinates(lat: response.coord.lat, lon: response.coord.lon)
                         }
                     }
                     
@@ -547,6 +556,143 @@ class WeatherService: ObservableObject {
     }
     
     // MARK: - API Methods
+    
+    // MARK: - Forecast Methods
+    
+    func fetchForecast(for city: String) {
+        guard isNetworkReachable else {
+            logger.error("❌ Network is not reachable for forecast")
+            return
+        }
+        
+        guard let encodedCity = city.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            logger.error("❌ Failed to encode city name for forecast: \(city)")
+            return
+        }
+        
+        let urlString = "\(forecastURL)?q=\(encodedCity)&appid=\(apiKey)&units=metric"
+        logger.info("🔗 Forecast API URL: \(urlString)")
+        
+        guard let url = URL(string: urlString) else {
+            logger.error("❌ Invalid forecast URL: \(urlString)")
+            return
+        }
+        
+        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self?.logger.error("❌ Forecast network error: \(error.localizedDescription)")
+                    return
+                }
+                
+                guard let data = data else {
+                    self?.logger.error("❌ No forecast data received")
+                    return
+                }
+                
+                do {
+                    let forecastResponse = try JSONDecoder().decode(ForecastResponse.self, from: data)
+                    self?.logger.info("✅ Successfully decoded forecast response")
+                    
+                    // Process hourly forecasts (3-hour intervals for next 24 hours)
+                    let next24Hours = forecastResponse.list.prefix(8) // 8 * 3 hours = 24 hours
+                    let hourlyForecasts = next24Hours.map { item in
+                        HourlyForecast(from: item, timezoneOffset: forecastResponse.city.timezone)
+                    }
+                    
+                    // Process daily forecasts (next 5 days)
+                    let dailyForecasts = self?.processDailyForecasts(from: forecastResponse.list, timezoneOffset: forecastResponse.city.timezone) ?? []
+                    
+                    DispatchQueue.main.async {
+                        self?.hourlyForecasts = hourlyForecasts
+                        self?.dailyForecasts = dailyForecasts
+                    }
+                    
+                } catch {
+                    self?.logger.error("❌ Failed to decode forecast response: \(error)")
+                }
+            }
+        }.resume()
+    }
+    
+    func fetchForecastByCoordinates(lat: Double, lon: Double) {
+        guard isNetworkReachable else {
+            logger.error("❌ Network is not reachable for forecast")
+            return
+        }
+        
+        let urlString = "\(forecastURL)?lat=\(lat)&lon=\(lon)&appid=\(apiKey)&units=metric"
+        logger.info("🔗 Forecast API URL: \(urlString)")
+        
+        guard let url = URL(string: urlString) else {
+            logger.error("❌ Invalid forecast URL: \(urlString)")
+            return
+        }
+        
+        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self?.logger.error("❌ Forecast network error: \(error.localizedDescription)")
+                    return
+                }
+                
+                guard let data = data else {
+                    self?.logger.error("❌ No forecast data received")
+                    return
+                }
+                
+                do {
+                    let forecastResponse = try JSONDecoder().decode(ForecastResponse.self, from: data)
+                    self?.logger.info("✅ Successfully decoded forecast response for coordinates")
+                    
+                    // Process hourly forecasts (3-hour intervals for next 24 hours)
+                    let next24Hours = forecastResponse.list.prefix(8) // 8 * 3 hours = 24 hours
+                    let hourlyForecasts = next24Hours.map { item in
+                        HourlyForecast(from: item, timezoneOffset: forecastResponse.city.timezone)
+                    }
+                    
+                    // Process daily forecasts (next 5 days)
+                    let dailyForecasts = self?.processDailyForecasts(from: forecastResponse.list, timezoneOffset: forecastResponse.city.timezone) ?? []
+                    
+                    DispatchQueue.main.async {
+                        self?.hourlyForecasts = hourlyForecasts
+                        self?.dailyForecasts = dailyForecasts
+                    }
+                    
+                } catch {
+                    self?.logger.error("❌ Failed to decode forecast response: \(error)")
+                }
+            }
+        }.resume()
+    }
+    
+    private func processDailyForecasts(from items: [ForecastItem], timezoneOffset: Int) -> [DailyForecast] {
+        let calendar = Calendar.current
+        
+        // Group items by day
+        var dailyGroups: [Date: [ForecastItem]] = [:]
+        
+        for item in items {
+            let itemDate = Date(timeIntervalSince1970: TimeInterval(item.dt))
+            let dayStart = calendar.startOfDay(for: itemDate)
+            
+            if dailyGroups[dayStart] == nil {
+                dailyGroups[dayStart] = []
+            }
+            dailyGroups[dayStart]?.append(item)
+        }
+        
+        // Create daily forecasts for next 5 days
+        let sortedDays = dailyGroups.keys.sorted()
+        let next5Days = sortedDays.prefix(5)
+        
+        return next5Days.map { day in
+            let dayItems = dailyGroups[day] ?? []
+            return DailyForecast(from: dayItems, timezoneOffset: timezoneOffset)
+        }
+    }
+    
+
 }
 
 // MARK: - Error Response Model

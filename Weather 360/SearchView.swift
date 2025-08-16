@@ -120,6 +120,7 @@ struct SearchView: View {
             .sheet(item: $weatherService.weather) { weather in
                 WeatherView(weather: weather)
                     .environmentObject(themeManager)
+                    .environmentObject(weatherService)
             }
             .alert("Location Access Required", isPresented: $showingLocationAlert) {
                 Button("Cancel", role: .cancel) { }
@@ -253,4 +254,5 @@ struct SearchView: View {
 
 #Preview {
     SearchView()
+        .environmentObject(ThemeManager())
 }

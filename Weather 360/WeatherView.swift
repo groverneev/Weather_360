@@ -4,6 +4,7 @@ struct WeatherView: View {
     let weather: WeatherDisplay
     @State private var isCelsius = false
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var weatherService: WeatherService
     
     var body: some View {
         ScrollView {
@@ -16,7 +17,7 @@ struct WeatherView: View {
                         .multilineTextAlignment(.center)
                     
                     HStack(spacing: 15) {
-                        Text("\(isCelsius ? weather.temperature.toCelsius() : weather.temperature.toFahrenheit(), specifier: "%.0f")°")
+                        Text("\(isCelsius ? weather.temperature : weather.temperature.toFahrenheit(), specifier: "%.0f")°")
                             .font(.system(size: 60, weight: .thin))
                             .foregroundColor(.primary)
                         
@@ -55,7 +56,7 @@ struct WeatherView: View {
                         Text("High")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        Text("\(isCelsius ? weather.highTemp.toCelsius() : weather.highTemp.toFahrenheit(), specifier: "%.0f")°")
+                        Text("\(isCelsius ? weather.highTemp : weather.highTemp.toFahrenheit(), specifier: "%.0f")°")
                             .font(.title3)
                             .fontWeight(.semibold)
                     }
@@ -67,19 +68,31 @@ struct WeatherView: View {
                         Text("Low")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        Text("\(isCelsius ? weather.lowTemp.toCelsius() : weather.lowTemp.toFahrenheit(), specifier: "%.0f")°")
+                        Text("\(isCelsius ? weather.lowTemp : weather.lowTemp.toFahrenheit(), specifier: "%.0f")°")
                             .font(.title3)
                             .fontWeight(.semibold)
                     }
                 }
                 .padding(.horizontal, 20)
                 
+                // Hourly Forecast Section
+                if !weatherService.hourlyForecasts.isEmpty {
+                    HourlyForecastView(forecasts: weatherService.hourlyForecasts, isCelsius: isCelsius)
+                        .environmentObject(themeManager)
+                }
+                
+                // Daily Forecast Section
+                if !weatherService.dailyForecasts.isEmpty {
+                    DailyForecastView(forecasts: weatherService.dailyForecasts, isCelsius: isCelsius)
+                        .environmentObject(themeManager)
+                }
+                
                 // Weather detail cards
                 HStack(spacing: 20) {
                     WeatherDetailCard(
                         icon: "thermometer",
                         title: "Feels Like",
-                        value: String(format: "%.0f°", isCelsius ? weather.feelsLike.toCelsius() : weather.feelsLike.toFahrenheit()),
+                        value: String(format: "%.0f°", isCelsius ? weather.feelsLike : weather.feelsLike.toFahrenheit()),
                         color: .orange
                     )
                     
@@ -276,6 +289,10 @@ struct WeatherDetailCard: View {
         timezoneOffset: -28800 // Pacific Time (UTC-8)
     )
     
+    let themeManager = ThemeManager()
+    let weatherService = WeatherService()
+    
     WeatherView(weather: sampleWeather)
-        .environmentObject(ThemeManager())
+        .environmentObject(themeManager)
+        .environmentObject(weatherService)
 }
