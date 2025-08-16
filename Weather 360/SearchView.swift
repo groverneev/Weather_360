@@ -129,7 +129,7 @@ struct SearchView: View {
                     }
                 }
             } message: {
-                Text(locationAlertMessage)
+                Text("Location access is required to get weather for your current location. Please enable location access in Settings.\n\n1. Tap 'Open Settings'\n2. Tap 'Privacy & Security'\n3. Tap 'Location Services'\n4. Find 'Weather 360' and enable it")
             }
         }
         .background(themeManager.isDarkMode ? Color(.systemGray6) : Color(.systemBackground))
@@ -230,15 +230,22 @@ struct SearchView: View {
     // MARK: - Methods
     
     private func handleLocationRequest() {
+        print("📍 [DEBUG] SearchView: Handling location request...")
+        print("📍 [DEBUG] Current authorization status: \(weatherService.locationManager.authorizationStatus.rawValue)")
+        
         switch weatherService.locationManager.authorizationStatus {
         case .denied, .restricted:
+            print("📍 [DEBUG] Location access denied, showing settings alert")
             locationAlertMessage = "Location access is required to get weather for your current location. Please enable location access in Settings."
             showingLocationAlert = true
         case .notDetermined:
+            print("📍 [DEBUG] Permission not determined, requesting permission")
             weatherService.locationManager.requestLocation()
         case .authorizedWhenInUse, .authorizedAlways:
+            print("📍 [DEBUG] Permission granted, requesting location")
             weatherService.locationManager.requestLocation()
         @unknown default:
+            print("📍 [DEBUG] Unknown status, requesting permission")
             weatherService.locationManager.requestLocation()
         }
     }

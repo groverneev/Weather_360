@@ -580,7 +580,27 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     func requestLocation() {
         print("📍 [DEBUG] Requesting location...")
         currentCity = "Getting location..."
-        locationManager.requestLocation()
+        
+        // Check current authorization status
+        let currentStatus = locationManager.authorizationStatus
+        print("📍 [DEBUG] Current authorization status: \(currentStatus.rawValue)")
+        
+        switch currentStatus {
+        case .notDetermined:
+            print("📍 [DEBUG] Permission not determined, requesting permission...")
+            locationManager.requestWhenInUseAuthorization()
+        case .denied, .restricted:
+            print("📍 [DEBUG] Permission denied/restricted, cannot request location")
+            DispatchQueue.main.async {
+                self.currentCity = "Location access denied"
+            }
+        case .authorizedWhenInUse, .authorizedAlways:
+            print("📍 [DEBUG] Permission granted, requesting location...")
+            locationManager.requestLocation()
+        @unknown default:
+            print("📍 [DEBUG] Unknown authorization status, requesting permission...")
+            locationManager.requestWhenInUseAuthorization()
+        }
     }
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
@@ -693,9 +713,20 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
             self.authorizationStatus = status
         }
         
-        if status == .authorizedWhenInUse || status == .authorizedAlways {
+        switch status {
+        case .authorizedWhenInUse, .authorizedAlways:
             print("📍 [DEBUG] Permission granted, requesting location...")
+            currentCity = "Getting location..."
             locationManager.requestLocation()
+        case .denied, .restricted:
+            print("📍 [DEBUG] Permission denied/restricted")
+            currentCity = "Location access denied"
+        case .notDetermined:
+            print("📍 [DEBUG] Permission not determined")
+            currentCity = "Location permission needed"
+        @unknown default:
+            print("📍 [DEBUG] Unknown authorization status")
+            currentCity = "Location status unknown"
         }
     }
 }
