@@ -2,7 +2,7 @@ import SwiftUI
 
 struct WeatherView: View {
     let weather: WeatherDisplay
-    @State private var isCelsius = false
+    let isCelsius: Bool
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var weatherService: WeatherService
     
@@ -10,70 +10,25 @@ struct WeatherView: View {
         ScrollView {
             VStack(spacing: 20) {
                 // City name and current temperature
-                VStack(spacing: 10) {
+                VStack(spacing: 15) {
                     Text(weather.cityName)
                         .font(.largeTitle)
                         .fontWeight(.bold)
                         .multilineTextAlignment(.center)
                     
-                    HStack(spacing: 15) {
-                        Text("\(isCelsius ? weather.temperature : weather.temperature.toFahrenheit(), specifier: "%.0f")°")
-                            .font(.system(size: 60, weight: .thin))
-                            .foregroundColor(.primary)
-                        
-                        VStack(alignment: .leading, spacing: 5) {
-                            Button(action: {
-                                isCelsius.toggle()
-                            }) {
-                                HStack(spacing: 5) {
-                                    Text(isCelsius ? "°C" : "°F")
-                                        .font(.title2)
-                                        .fontWeight(.semibold)
-                                    Image(systemName: "arrow.up.arrow.down")
-                                        .font(.caption)
-                                }
-                                .foregroundColor(.blue)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color.blue.opacity(0.1))
-                                .cornerRadius(8)
-                            }
-                            
-                            Text(weather.description.capitalized)
-                                .font(.title3)
-                                .foregroundColor(.secondary)
-                        }
-                    }
+                    // Centered main temperature
+                    Text("\(isCelsius ? weather.temperature : weather.temperature.toFahrenheit(), specifier: "%.0f")°")
+                        .font(.system(size: 80, weight: .thin, design: .default))
+                        .fontWeight(.thin)
+                        .multilineTextAlignment(.center)
+                    
+                    // Weather description below temperature
+                    Text(weather.description.capitalized)
+                        .font(.title2)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
                 }
                 .padding(.top, 20)
-                
-                // High and Low temperatures
-                HStack(spacing: 40) {
-                    VStack {
-                        Image(systemName: "thermometer.sun.fill")
-                            .font(.title2)
-                            .foregroundColor(.red)
-                        Text("High")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text("\(isCelsius ? weather.highTemp : weather.highTemp.toFahrenheit(), specifier: "%.0f")°")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                    }
-                    
-                    VStack {
-                        Image(systemName: "thermometer.snowflake")
-                            .font(.title2)
-                            .foregroundColor(.blue)
-                        Text("Low")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text("\(isCelsius ? weather.lowTemp : weather.lowTemp.toFahrenheit(), specifier: "%.0f")°")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                    }
-                }
-                .padding(.horizontal, 20)
                 
                 // Hourly Forecast Section
                 if !weatherService.hourlyForecasts.isEmpty {
@@ -86,6 +41,42 @@ struct WeatherView: View {
                     DailyForecastView(forecasts: weatherService.dailyForecasts, isCelsius: isCelsius)
                         .environmentObject(themeManager)
                 }
+                
+                // High/Low temperatures and Weather details using consistent WeatherDetailCard format
+                HStack(spacing: 20) {
+                    // High temperature
+                    WeatherDetailCard(
+                        icon: "thermometer.sun.fill",
+                        title: "High",
+                        value: String(format: "%.0f°", isCelsius ? weather.highTemp : weather.highTemp.toFahrenheit()),
+                        color: .red
+                    )
+                    
+                    // Low temperature
+                    WeatherDetailCard(
+                        icon: "thermometer.snowflake",
+                        title: "Low",
+                        value: String(format: "%.0f°", isCelsius ? weather.lowTemp : weather.lowTemp.toFahrenheit()),
+                        color: .blue
+                    )
+                    
+                    // Humidity
+                    WeatherDetailCard(
+                        icon: "humidity",
+                        title: "Humidity",
+                        value: "\(weather.humidity)%",
+                        color: .blue
+                    )
+                    
+                    // Air Quality
+                    WeatherDetailCard(
+                        icon: airQualityIcon,
+                        title: "Air Quality",
+                        value: airQualityText,
+                        color: airQualityColor
+                    )
+                }
+                .padding(.horizontal, 20)
                 
                 // Weather detail cards
                 HStack(spacing: 20) {
@@ -112,33 +103,7 @@ struct WeatherView: View {
                 }
                 .padding(.horizontal, 20)
                 
-                // Humidity and Air Quality
-                HStack(spacing: 40) {
-                    VStack {
-                        Image(systemName: "humidity")
-                            .font(.title2)
-                            .foregroundColor(.blue)
-                        Text("Humidity")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text("\(weather.humidity)%")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                    }
-                    
-                    VStack {
-                        Image(systemName: airQualityIcon)
-                            .font(.title2)
-                            .foregroundColor(airQualityColor)
-                        Text("Air Quality")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(airQualityText)
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                            .foregroundColor(airQualityColor)
-                    }
-                }
+
                 
                 // Sunrise and Sunset
                 HStack(spacing: 40) {
@@ -292,7 +257,7 @@ struct WeatherDetailCard: View {
     let themeManager = ThemeManager()
     let weatherService = WeatherService()
     
-    WeatherView(weather: sampleWeather)
+    WeatherView(weather: sampleWeather, isCelsius: true)
         .environmentObject(themeManager)
         .environmentObject(weatherService)
 }

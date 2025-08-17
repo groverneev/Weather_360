@@ -6,6 +6,7 @@ struct SearchView: View {
     @State private var cityInput = ""
     @State private var showingLocationAlert = false
     @State private var locationAlertMessage = ""
+    @State private var isCelsius = false // Temperature unit toggle - default to Fahrenheit
     
     var body: some View {
         NavigationView {
@@ -66,6 +67,37 @@ struct SearchView: View {
                             .multilineTextAlignment(.center)
                     }
                     
+                    // Temperature unit toggle
+                    HStack(spacing: 0) {
+                        Button(action: {
+                            isCelsius = false
+                        }) {
+                            Text("°F")
+                                .font(.title3)
+                                .fontWeight(.semibold)
+                                .foregroundColor(!isCelsius ? .white : .blue)
+                                .frame(width: 50, height: 40)
+                                .background(!isCelsius ? Color.blue : Color.blue.opacity(0.1))
+                                .cornerRadius(8, corners: [.topLeft, .bottomLeft])
+                        }
+                        
+                        Button(action: {
+                            isCelsius = true
+                        }) {
+                            Text("°C")
+                                .font(.title3)
+                                .fontWeight(.semibold)
+                                .foregroundColor(isCelsius ? .white : .blue)
+                                .frame(width: 50, height: 40)
+                                .background(isCelsius ? Color.blue : Color.blue.opacity(0.1))
+                                .cornerRadius(8, corners: [.topRight, .bottomRight])
+                        }
+                    }
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                    )
+                    
                     // Search input
                     VStack(spacing: 15) {
                         TextField("Enter city name", text: $cityInput)
@@ -118,7 +150,7 @@ struct SearchView: View {
             }
             .navigationBarHidden(true)
             .sheet(item: $weatherService.weather) { weather in
-                WeatherView(weather: weather)
+                WeatherView(weather: weather, isCelsius: isCelsius)
                     .environmentObject(themeManager)
                     .environmentObject(weatherService)
             }
@@ -249,6 +281,23 @@ struct SearchView: View {
             print("📍 [DEBUG] Unknown status, requesting permission")
             weatherService.locationManager.requestLocation()
         }
+    }
+}
+
+// MARK: - Custom Corner Radius Extension
+extension View {
+    func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
+        clipShape(RoundedCorner(radius: radius, corners: corners))
+    }
+}
+
+struct RoundedCorner: Shape {
+    var radius: CGFloat = .infinity
+    var corners: UIRectCorner = .allCorners
+    
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(roundedRect: rect, byRoundingCorners: corners, cornerRadii: CGSize(width: radius, height: radius))
+        return Path(path.cgPath)
     }
 }
 
