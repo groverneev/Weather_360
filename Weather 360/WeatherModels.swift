@@ -190,20 +190,33 @@ struct HourlyForecast: Identifiable {
     let icon: String
     let description: String
     let isSunset: Bool
+    let timezoneOffset: Int // Store timezone offset for proper time display
     
     init(from forecastItem: ForecastItem, timezoneOffset: Int) {
-        self.time = Date(timeIntervalSince1970: TimeInterval(forecastItem.dt))
+        // Create time in the city's timezone, not UTC
+        let utcTime = Date(timeIntervalSince1970: TimeInterval(forecastItem.dt))
+        
+        // Apply timezone offset to get city-local time
+        if let cityTimezone = TimeZone(secondsFromGMT: timezoneOffset) {
+            var calendar = Calendar.current
+            calendar.timeZone = cityTimezone
+            self.time = calendar.date(from: calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: utcTime)) ?? utcTime
+        } else {
+            self.time = utcTime
+        }
+        
         self.temperature = forecastItem.main.temp
         self.icon = forecastItem.weather.first?.icon ?? ""
         self.description = forecastItem.weather.first?.description ?? ""
+        self.timezoneOffset = timezoneOffset
         
-        // Check if this is around sunset time (between 6 PM and 8 PM)
-        let calendar = Calendar.current
+        // Check if this is around sunset time (between 6 PM and 8 PM) using city time
+        var calendar = Calendar.current
+        if let cityTimezone = TimeZone(secondsFromGMT: timezoneOffset) {
+            calendar.timeZone = cityTimezone
+        }
         let hour = calendar.component(.hour, from: self.time)
         self.isSunset = hour >= 18 && hour <= 20
-        
-        // Note: timezoneOffset is available for future use if needed
-        _ = timezoneOffset
     }
 }
 
@@ -216,9 +229,14 @@ struct DailyForecast: Identifiable {
     let highTemp: Double
     let description: String
     
-    init(from forecastItems: [ForecastItem], timezoneOffset: Int, isFirstDay: Bool = false) {
+    init(from forecastItems: [ForecastItem], timezoneOffset: Int) {
         // Group forecast items by day and calculate daily min/max
-        let calendar = Calendar.current
+        var cityCalendar = Calendar.current
+        
+        // Set the calendar to use the city's timezone
+        if let cityTimezone = TimeZone(secondsFromGMT: timezoneOffset) {
+            cityCalendar.timeZone = cityTimezone
+        }
         
         // Find the first forecast item for this day
         guard let firstItem = forecastItems.first else {
@@ -243,8 +261,13 @@ struct DailyForecast: Identifiable {
             formatter.timeZone = timezone
         }
         
-        // Show "Today" for the first day, otherwise show the day name
-        if isFirstDay {
+        // Determine if this is actually "today" in the city's timezone
+        let cityToday = cityCalendar.startOfDay(for: Date())
+        let forecastDay = cityCalendar.startOfDay(for: date)
+        let isActuallyToday = cityCalendar.isDate(forecastDay, inSameDayAs: cityToday)
+        
+        // Show "Today" only if it's actually today in the city's timezone
+        if isActuallyToday {
             self.dayName = "Today"
         } else {
             self.dayName = formatter.string(from: date)
@@ -254,10 +277,10 @@ struct DailyForecast: Identifiable {
         self.icon = firstItem.weather.first?.icon ?? ""
         self.description = firstItem.weather.first?.description ?? ""
         
-        // Calculate daily min/max from all items for this day
+        // Calculate daily min/max from all items for this day using city timezone
         let dayItems = forecastItems.filter { item in
             let itemDate = Date(timeIntervalSince1970: TimeInterval(item.dt))
-            return calendar.isDate(itemDate, inSameDayAs: date)
+            return cityCalendar.isDate(itemDate, inSameDayAs: date)
         }
         
         // Calculate min/max temperatures

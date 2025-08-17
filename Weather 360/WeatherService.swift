@@ -667,14 +667,19 @@ class WeatherService: ObservableObject {
     }
     
     private func processDailyForecasts(from items: [ForecastItem], timezoneOffset: Int) -> [DailyForecast] {
-        let calendar = Calendar.current
+        var cityCalendar = Calendar.current
         
-        // Group items by day
+        // Set the calendar to use the city's timezone for proper day grouping
+        if let cityTimezone = TimeZone(secondsFromGMT: timezoneOffset) {
+            cityCalendar.timeZone = cityTimezone
+        }
+        
+        // Group items by day using the city's timezone
         var dailyGroups: [Date: [ForecastItem]] = [:]
         
         for item in items {
             let itemDate = Date(timeIntervalSince1970: TimeInterval(item.dt))
-            let dayStart = calendar.startOfDay(for: itemDate)
+            let dayStart = cityCalendar.startOfDay(for: itemDate)
             
             if dailyGroups[dayStart] == nil {
                 dailyGroups[dayStart] = []
@@ -686,10 +691,9 @@ class WeatherService: ObservableObject {
         let sortedDays = dailyGroups.keys.sorted()
         let next5Days = sortedDays.prefix(5)
         
-        return next5Days.enumerated().map { index, day in
+        return next5Days.map { day in
             let dayItems = dailyGroups[day] ?? []
-            let isFirstDay = index == 0
-            return DailyForecast(from: dayItems, timezoneOffset: timezoneOffset, isFirstDay: isFirstDay)
+            return DailyForecast(from: dayItems, timezoneOffset: timezoneOffset)
         }
     }
     

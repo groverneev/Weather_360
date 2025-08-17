@@ -67,10 +67,20 @@ struct HourlyForecastItem: View {
         formatter.dateFormat = "h a"
         formatter.locale = Locale(identifier: "en_US")
         
-        let calendar = Calendar.current
-        let hour = calendar.component(.hour, from: forecast.time)
+        // Use the city's timezone for proper time display
+        if let cityTimezone = TimeZone(secondsFromGMT: forecast.timezoneOffset) {
+            formatter.timeZone = cityTimezone
+        }
         
-        if hour == calendar.component(.hour, from: Date()) {
+        var calendar = Calendar.current
+        if let cityTimezone = TimeZone(secondsFromGMT: forecast.timezoneOffset) {
+            calendar.timeZone = cityTimezone
+        }
+        
+        let hour = calendar.component(.hour, from: forecast.time)
+        let currentHour = calendar.component(.hour, from: Date())
+        
+        if hour == currentHour {
             return "Now"
         } else {
             return formatter.string(from: forecast.time)
