@@ -141,7 +141,6 @@ struct DailyForecastItem: View {
                 highTemp: forecast.highTemp,
                 isCelsius: isCelsius
             )
-            .frame(height: 20)
             
             // High and low temperatures
             HStack(spacing: 20) {
@@ -171,56 +170,53 @@ struct TemperatureRangeBar: View {
     let highTemp: Double
     let isCelsius: Bool
     
-    private var lowTempF: Double { lowTemp.toFahrenheit() }
-    private var highTempF: Double { highTemp.toFahrenheit() }
-    
-    var body: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                // Background bar
-                Rectangle()
-                    .fill(Color.gray.opacity(0.3))
-                    .frame(height: 4)
-                    .cornerRadius(2)
-                
-                // Temperature range bar
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            gradient: Gradient(colors: [.blue, .yellow, .orange, .red]),
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .frame(width: geometry.size.width, height: 4)
-                    .cornerRadius(2)
-                
-                // Current temperature indicator (white dot)
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: 8, height: 8)
-                    .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
-                    .position(
-                        x: currentTempPosition(in: geometry.size.width),
-                        y: geometry.size.height / 2
-                    )
-            }
+    private var temperatureColors: (start: Color, end: Color) {
+        let avgTemp = (lowTemp + highTemp) / 2
+        let tempInFahrenheit = isCelsius ? avgTemp * 9/5 + 32 : avgTemp
+        
+        switch tempInFahrenheit {
+        case ..<50:
+            return (.blue, .cyan) // Cold
+        case 50..<65:
+            return (.cyan, .green) // Cool
+        case 65..<75:
+            return (.green, .yellow) // Mild
+        case 75..<85:
+            return (.yellow, .orange) // Warm
+        default:
+            return (.orange, .red) // Hot
         }
     }
     
-    private func currentTempPosition(in width: CGFloat) -> CGFloat {
-        // Calculate position based on current temperature relative to low/high range
-        let currentTemp = isCelsius ? (lowTemp + highTemp) / 2 : (lowTempF + highTempF) / 2
-        let low = isCelsius ? lowTemp : lowTempF
-        let high = isCelsius ? highTemp : highTempF
-        
-        let range = high - low
-        let position = (currentTemp - low) / range
-        
-        return position * width
+    var body: some View {
+        HStack(spacing: 0) {
+            // Low temperature indicator
+            Rectangle()
+                .fill(temperatureColors.start)
+                .frame(width: 2, height: 16)
+                .cornerRadius(1)
+            
+            // Main temperature range bar
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        gradient: Gradient(colors: [temperatureColors.start, temperatureColors.end]),
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .frame(height: 8)
+                .cornerRadius(4)
+            
+            // High temperature indicator
+            Rectangle()
+                .fill(temperatureColors.end)
+                .frame(width: 2, height: 16)
+                .cornerRadius(1)
+        }
+        .frame(height: 20)
     }
 }
-
 // MARK: - Weather Icon View
 struct WeatherIconView: View {
     let iconCode: String
