@@ -139,7 +139,7 @@ struct DailyForecastItem: View {
             Text("\(isCelsius ? forecast.lowTemp : forecast.lowTemp.toFahrenheit(), specifier: "%.0f")°")
                 .font(.subheadline)
                 .fontWeight(.medium)
-                .foregroundColor(.blue)
+                .foregroundColor(.white)
                 .frame(width: 35, alignment: .trailing)
             
             // Temperature range bar
@@ -153,7 +153,7 @@ struct DailyForecastItem: View {
             Text("\(isCelsius ? forecast.highTemp : forecast.highTemp.toFahrenheit(), specifier: "%.0f")°")
                 .font(.subheadline)
                 .fontWeight(.semibold)
-                .foregroundColor(.red)
+                .foregroundColor(.white)
                 .frame(width: 35, alignment: .leading)
         }
         .padding(.vertical, 8)
