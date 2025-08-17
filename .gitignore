@@ -91,6 +91,7 @@ iOSInjectionProject/
 
 # Configuration files with sensitive data
 Weather 360/Config.swift
+Weather 360/Config.local.swift
 
 # Template files (keep these for reference)
 !Config.template.swift
