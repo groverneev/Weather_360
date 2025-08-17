@@ -216,7 +216,7 @@ struct DailyForecast: Identifiable {
     let highTemp: Double
     let description: String
     
-    init(from forecastItems: [ForecastItem], timezoneOffset: Int) {
+    init(from forecastItems: [ForecastItem], timezoneOffset: Int, isFirstDay: Bool = false) {
         // Group forecast items by day and calculate daily min/max
         let calendar = Calendar.current
         
@@ -234,10 +234,21 @@ struct DailyForecast: Identifiable {
         let date = Date(timeIntervalSince1970: TimeInterval(firstItem.dt))
         self.date = date
         
-        // Get day name
+        // Get day name using the location's timezone
         let formatter = DateFormatter()
         formatter.dateFormat = "EEE"
-        self.dayName = formatter.string(from: date)
+        
+        // Create timezone from the offset
+        if let timezone = TimeZone(secondsFromGMT: timezoneOffset) {
+            formatter.timeZone = timezone
+        }
+        
+        // Show "Today" for the first day, otherwise show the day name
+        if isFirstDay {
+            self.dayName = "Today"
+        } else {
+            self.dayName = formatter.string(from: date)
+        }
         
         // Use the first item's weather for icon and description
         self.icon = firstItem.weather.first?.icon ?? ""

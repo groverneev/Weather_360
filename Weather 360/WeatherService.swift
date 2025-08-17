@@ -686,9 +686,10 @@ class WeatherService: ObservableObject {
         let sortedDays = dailyGroups.keys.sorted()
         let next5Days = sortedDays.prefix(5)
         
-        return next5Days.map { day in
+        return next5Days.enumerated().map { index, day in
             let dayItems = dailyGroups[day] ?? []
-            return DailyForecast(from: dayItems, timezoneOffset: timezoneOffset)
+            let isFirstDay = index == 0
+            return DailyForecast(from: dayItems, timezoneOffset: timezoneOffset, isFirstDay: isFirstDay)
         }
     }
     
