@@ -209,39 +209,67 @@ struct WeatherIconView: View {
     let iconCode: String
     
     var body: some View {
-        // This is a placeholder - you can integrate with a weather icon system
-        // For now, using SF Symbols based on weather conditions
         Image(systemName: weatherIconName)
             .font(.title2)
             .foregroundColor(weatherIconColor)
     }
     
     private var weatherIconName: String {
+        // Use weather condition as primary factor, not time of day
         switch iconCode {
-        case "01d": return "sun.max.fill"
-        case "01n": return "moon.fill"
-        case "02d", "03d", "04d": return "cloud.sun.fill"
-        case "02n", "03n", "04n": return "cloud.moon.fill"
+        // Clear sky
+        case "01d", "01n": return "sun.max.fill"
+        
+        // Partly cloudy
+        case "02d", "02n": return "cloud.sun.fill"
+        
+        // Cloudy
+        case "03d", "03n": return "cloud.fill"
+        
+        // Overcast
+        case "04d", "04n": return "cloud.fill"
+        
+        // Rain
         case "09d", "09n": return "cloud.rain.fill"
-        case "10d": return "cloud.sun.rain.fill"
-        case "10n": return "cloud.moon.rain.fill"
+        case "10d", "10n": return "cloud.rain.fill"
+        
+        // Thunder
         case "11d", "11n": return "cloud.bolt.rain.fill"
+        
+        // Snow
         case "13d", "13n": return "snow"
+        
+        // Fog/Mist
         case "50d", "50n": return "cloud.fog.fill"
+        
         default: return "cloud.fill"
         }
     }
     
     private var weatherIconColor: Color {
+        // Colors based on weather condition, not time
         switch iconCode {
-        case "01d": return .yellow
-        case "01n": return .gray
-        case "02d", "03d", "04d": return .orange
-        case "02n", "03n", "04n": return .gray
+        // Clear sky - always bright
+        case "01d", "01n": return .yellow
+        
+        // Partly cloudy - warm
+        case "02d", "02n": return .orange
+        
+        // Cloudy/Overcast - neutral
+        case "03d", "03n", "04d", "04n": return .gray
+        
+        // Rain - cool
         case "09d", "09n", "10d", "10n": return .blue
+        
+        // Thunder - dramatic
         case "11d", "11n": return .purple
+        
+        // Snow - cold
         case "13d", "13n": return .cyan
+        
+        // Fog - neutral
         case "50d", "50n": return .gray
+        
         default: return .gray
         }
     }
