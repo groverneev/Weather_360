@@ -135,6 +135,13 @@ struct DailyForecastItem: View {
             WeatherIconView(iconCode: forecast.icon)
                 .frame(width: 25, height: 25)
             
+            // Low temperature (left of bar)
+            Text("\(isCelsius ? forecast.lowTemp : forecast.lowTemp.toFahrenheit(), specifier: "%.0f")°")
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundColor(.blue)
+                .frame(width: 35, alignment: .trailing)
+            
             // Temperature range bar
             TemperatureRangeBar(
                 lowTemp: forecast.lowTemp,
@@ -142,19 +149,12 @@ struct DailyForecastItem: View {
                 isCelsius: isCelsius
             )
             
-            // High and low temperatures
-            HStack(spacing: 20) {
-                Text("\(isCelsius ? forecast.lowTemp : forecast.lowTemp.toFahrenheit(), specifier: "%.0f")°")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.blue)
-                
-                Text("\(isCelsius ? forecast.highTemp : forecast.highTemp.toFahrenheit(), specifier: "%.0f")°")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.red)
-            }
-            .frame(width: 80)
+            // High temperature (right of bar)
+            Text("\(isCelsius ? forecast.highTemp : forecast.highTemp.toFahrenheit(), specifier: "%.0f")°")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(.red)
+                .frame(width: 35, alignment: .leading)
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 15)
@@ -172,49 +172,36 @@ struct TemperatureRangeBar: View {
     
     private var temperatureColors: (start: Color, end: Color) {
         let avgTemp = (lowTemp + highTemp) / 2
+        
+        // Convert to Fahrenheit for color logic, but use Celsius ranges
         let tempInFahrenheit = isCelsius ? avgTemp * 9/5 + 32 : avgTemp
         
         switch tempInFahrenheit {
-        case ..<50:
+        case ..<10: // Below 10°C (50°F)
             return (.blue, .cyan) // Cold
-        case 50..<65:
+        case 10..<18: // 10-18°C (50-65°F)
             return (.cyan, .green) // Cool
-        case 65..<75:
+        case 18..<24: // 18-24°C (65-75°F)
             return (.green, .yellow) // Mild
-        case 75..<85:
+        case 24..<30: // 24-30°C (75-85°F)
             return (.yellow, .orange) // Warm
-        default:
+        default: // Above 30°C (85°F)
             return (.orange, .red) // Hot
         }
     }
     
     var body: some View {
-        HStack(spacing: 0) {
-            // Low temperature indicator
-            Rectangle()
-                .fill(temperatureColors.start)
-                .frame(width: 2, height: 16)
-                .cornerRadius(1)
-            
-            // Main temperature range bar
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        gradient: Gradient(colors: [temperatureColors.start, temperatureColors.end]),
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
+        Rectangle()
+            .fill(
+                LinearGradient(
+                    gradient: Gradient(colors: [temperatureColors.start, temperatureColors.end]),
+                    startPoint: .leading,
+                    endPoint: .trailing
                 )
-                .frame(height: 8)
-                .cornerRadius(4)
-            
-            // High temperature indicator
-            Rectangle()
-                .fill(temperatureColors.end)
-                .frame(width: 2, height: 16)
-                .cornerRadius(1)
-        }
-        .frame(height: 20)
+            )
+            .frame(height: 8)
+            .cornerRadius(4)
+            .frame(height: 20)
     }
 }
 // MARK: - Weather Icon View
